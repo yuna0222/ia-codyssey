@@ -52,8 +52,8 @@ def read_log_file(file_path):
     lines = []
 
     try:
-        with open(file_path, 'r', encoding='utf-8') as f:
-            lines = f.readlines()
+        with open(file_path, 'r', encoding='utf-8') as file:
+            lines = file.readlines()
 
     except FileNotFoundError:
         print(f'[오류] 파일을 찾을 수 없어요: {file_path}')
@@ -74,6 +74,7 @@ def read_log_file(file_path):
 
     except OSError as error:
         print(f'[오류] 파일 시스템 오류가 발생했어요: {error}')
+
 
     return lines
 
@@ -124,28 +125,6 @@ def analyze_danger(records):
         root_cause = None
 
     return danger_records, root_cause
-
-def print_log(records):
-    print('\n' + '=' * 65)
-    print('  미션 컴퓨터 로그 전체 내용 (시간 순)')
-    print('=' * 65)
-
-    for record in records:
-        score = record['score']
-
-        if score >= 4:
-            marker = '[!!!]'   # 매우 위험
-        elif score >= 2:
-            marker = '[!! ]'   # 위험
-        elif score >= 1:
-            marker = '[!  ]'   # 주의
-        else:
-            marker = '[   ]'   # 정상
-
-        print(f'{marker} {record["timestamp"]}  {record["message"]}  (점수: {score})')
-
-    print('=' * 65 + '\n')
-
 
 
 def save_lines(lines, file_name):
@@ -248,36 +227,31 @@ def save_danger_logs(danger_records):
 
 
 def main():
-    print('Hello Mars')
+    print('Hello Mars\n')
 
     lines = read_log_file(LOG_FILE_PATH)
 
     if not lines:
-        print('프로그램을 종료')
+        print('프로그램 종료')
         return
 
+    print('로그 전체 출력')
+    print('-' * 50)
+
+    for line in lines:
+        print(line.strip())
+
+    print('-' * 50)
+
     records = parse_log(lines)
-
     danger_records, root_cause = analyze_danger(records)
-
-    print_log(records)
-
-    print('추정 사고 원인')
-    print('-' * 65)
-    if root_cause:
-        print(f'  ★ 시각  : {root_cause["timestamp"]}')
-        print(f'  ★ 점수  : {root_cause["score"]}점')
-        print(f'  ★ 내용  : {root_cause["message"]}')
-    else:
-        print('  위험 로그가 발견되지 않음')
-    print('-' * 65)
 
 
     write_report(records, danger_records, root_cause)
     save_reversed_logs(records)
     save_danger_logs(danger_records)
 
-    print('\n모든 작업이 완료')
+    print('\n모든 작업 완료')
 
 
 if __name__ == '__main__':
