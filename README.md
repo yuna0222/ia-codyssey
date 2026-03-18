@@ -60,14 +60,16 @@
 ## 4. 폴더 구조
 ```text
 ia-codyssey/
-├── week01/                        # 주차 별 미션폴더
-│   ├── main.py                    # 코드
-│   ├── mission_computer_main.log  # 로그 데이터
-│   ├── error_logs.log             # 에러 로그 데이터
-│   └── README.md                  # 주차별 미션 설명 및 분석
+├── week01/                                 # 주차별 미션폴더
+│   ├── main.py                             # 코드
+│   ├── mission_computer_main.log           # 미션 컴퓨터 로그 파일
+│   ├── mission_computer_main_reversed.log  # 미션 컴퓨터 로그 역순 파일
+│   ├── mission_computer_main_danger.log    # 위험 로그 추출 파일
+│   ├── log_analysis.md                     # 사고원인 분석 보고서
+│   └── README.md                           # 주차별 미션 설명 및 분석
 ├── week02/
 │   └── ...
-├── images/                        # 이미지 리소스
+├── images/                                 # 이미지 리소스
 │   └── img.png
 └── README.md
 ```
