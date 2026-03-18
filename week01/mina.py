@@ -221,6 +221,17 @@ def write_report(records, danger_records, root_cause, ):
 
 
 
+def save_reversed_logs(records):
+    output_lines = ['timestamp,event,message\n']
+
+    for record in reversed(records):
+        output_lines.append(
+            f'{record["timestamp"]},{record["event"]},{record["message"]}\n'
+        )
+        # print(f'{record["timestamp"]},{record["event"]},{record["message"]}')
+
+    save_lines(output_lines, REVERSED_FILE_PATH)
+
 
 
 def main():
@@ -250,7 +261,7 @@ def main():
 
 
     write_report(records, danger_records, root_cause)
-
+    save_reversed_logs(records)
 
     print('\n모든 작업이 완료')
 
