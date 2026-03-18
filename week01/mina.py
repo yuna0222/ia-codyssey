@@ -232,6 +232,26 @@ def save_reversed_logs(records):
 
     save_lines(output_lines, REVERSED_FILE_PATH)
 
+def save_danger_logs(danger_records):
+    output_lines = ['timestamp,event,score,message\n']
+
+    sorted_records = sorted(
+        danger_records,
+        key=lambda record: record['score'],
+        reverse=True
+    )
+
+    for record in sorted_records:
+        timestamp = record['timestamp']
+        event = record['event']
+        score = record['score']
+        message = record['message']
+
+        output_lines.append(
+            f'{timestamp},{event},{score},{message}\n'
+        )
+
+    save_lines(output_lines, PROBLEMS_FILE_PATH)
 
 
 def main():
@@ -262,6 +282,7 @@ def main():
 
     write_report(records, danger_records, root_cause)
     save_reversed_logs(records)
+    save_danger_logs(danger_records)
 
     print('\n모든 작업이 완료')
 
