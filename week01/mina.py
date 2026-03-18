@@ -95,6 +95,8 @@ def parse_log(lines):
                 'message': parts[2],
             })
 
+    records.sort(key=lambda record: record['timestamp'])
+
     return records
 
 
@@ -145,7 +147,7 @@ def print_log(records):
     print('=' * 65 + '\n')
 
 
-# 로그 리스트를 파일로 저장하는 함수
+
 def save_lines(lines, file_name):
     try:
         with open(file_name, 'w', encoding='utf-8') as new_file:
@@ -164,7 +166,6 @@ def write_report(records, danger_records, root_cause, ):
     lines.append('# 미션 컴퓨터 사고 분석 보고서\n\n')
     lines.append('---\n\n')
 
-    # 1. 분석 개요
     lines.append('## 1. 분석 개요\n\n')
     lines.append('| 항목 | 내용 |\n')
     lines.append('|------|------|\n')
@@ -175,7 +176,6 @@ def write_report(records, danger_records, root_cause, ):
     lines.append(f'| 위험 로그 수 | {len(danger_records)} 건 |\n')
     lines.append('\n')
 
-    # 2. 추정 사고 원인
     lines.append('## 2. 추정 사고 원인 (최고 위험 점수 로그)\n\n')
     if root_cause:
         lines.append(f'- **발생 시각**: {root_cause["timestamp"]}\n')
@@ -185,17 +185,14 @@ def write_report(records, danger_records, root_cause, ):
         lines.append('- 사고 원인을 특정할 수 없습니다.\n')
     lines.append('\n')
 
-    # 3. 위험 로그 목록 (점수 높은 순 정렬)
     lines.append('## 3. 위험 로그 목록 (점수 높은 순)\n\n')
     lines.append('| 시각 | 점수 | 메시지 |\n')
     lines.append('|------|------|--------|\n')
 
-    # sorted()로 점수 기준 내림차순 정렬
     for r in sorted(danger_records, key=lambda x: x['score'], reverse=True):
         lines.append(f'| {r["timestamp"]} | {r["score"]}점 | {r["message"]} |\n')
     lines.append('\n')
 
-    # 4. 전체 로그 (점수 포함)
     lines.append('## 4. 전체 로그 및 위험 점수\n\n')
     lines.append('| 시각 | 점수 | 메시지 |\n')
     lines.append('|------|------|--------|\n')
@@ -203,7 +200,6 @@ def write_report(records, danger_records, root_cause, ):
         lines.append(f'| {r["timestamp"]} | {r["score"]}점 | {r["message"]} |\n')
     lines.append('\n')
 
-    # 5. 결론
     lines.append('## 5. 결론 및 권고\n\n')
     lines.append(
         '키워드 위험 점수화 분석 결과, 미션 완료 후 산소 탱크 불안정 및 폭발이 '
@@ -217,9 +213,6 @@ def write_report(records, danger_records, root_cause, ):
     lines.append('4. 로그 레벨 체계 재정비 (사고는 반드시 ERROR/CRITICAL로 기록)\n')
 
     save_lines(lines, REPORT_FILE_PATH)
-
-
-
 
 def save_reversed_logs(records):
     output_lines = ['timestamp,event,message\n']
