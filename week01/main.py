@@ -1,5 +1,3 @@
-import os
-
 LOG_FILE_PATH = 'mission_computer_main.log'
 REPORT_FILE_PATH = 'log_analysis.md'
 PROBLEMS_FILE_PATH = 'mission_computer_main_danger.log'
