@@ -179,17 +179,18 @@ def write_report(records, danger_records, root_cause, ):
         lines.append(f'| {r["timestamp"]} | {r["score"]}점 | {r["message"]} |\n')
     lines.append('\n')
 
-    lines.append('## 5. 결론 및 권고\n\n')
-    lines.append(
-        '키워드 위험 점수화 분석 결과, 미션 완료 후 산소 탱크 불안정 및 폭발이 '
-        '발생한 것으로 확인됩니다. 미션 성공 이후에도 귀환 단계의 시스템 안전 점검이 '
-        '필요하며, 산소 탱크 모니터링 강화를 권고합니다.\n\n'
-    )
-    lines.append('**권고 사항:**\n\n')
-    lines.append('1. 산소 탱크 압력 센서 실시간 모니터링 강화\n')
-    lines.append('2. 미션 완료 후에도 전체 시스템 안전 점검 유지\n')
-    lines.append('3. 위험 키워드 감지 시 자동 경보 시스템 도입\n')
-    lines.append('4. 로그 레벨 체계 재정비 (사고는 반드시 ERROR/CRITICAL로 기록)\n')
+    lines.append('## 5. 결론\n\n')
+    if root_cause:
+        lines.append(
+            f'로그 분석 결과, **{root_cause["timestamp"]} 시점에 발생한 '
+            f'"{root_cause["message"]}"** 상황이 가장 높은 위험도를 보이며 '
+            '사고의 주요 원인으로 판단됩니다.\n\n'
+        )
+    else:
+        lines.append(
+            '로그 분석 결과, 특정한 사고 원인을 명확하게 식별할 수 없습니다.\n\n'
+        )
+
 
     save_lines(lines, REPORT_FILE_PATH)
 
@@ -217,7 +218,7 @@ def save_reversed_logs(lines):
 
 
 def save_danger_logs(danger_records):
-    output_lines = ['timestamp,event,score,message\n']
+    output_lines = ['score,timestamp,event,message\n']
 
     sorted_records = sorted(
         danger_records,
@@ -232,7 +233,7 @@ def save_danger_logs(danger_records):
         message = record['message']
 
         output_lines.append(
-            f'{timestamp},{event},{score},{message}\n'
+            f'[위험도: {score}] {timestamp},{event},{message} \n'
         )
 
     save_lines(output_lines, PROBLEMS_FILE_PATH)
