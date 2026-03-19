@@ -93,6 +93,15 @@ def parse_log(lines):
                 'message': parts[2],
             })
 
+    print('로그 전체 출력')
+    print('-' * 50)
+
+    for line in lines:
+        print(line.strip())
+
+    print('-' * 50)
+
+
     records.sort(key=lambda record: record['timestamp'])
 
     return records
@@ -243,18 +252,14 @@ def main():
         print('프로그램 종료')
         return
 
-    print('로그 전체 출력')
-    print('-' * 50)
 
-    for line in lines:
-        print(line.strip())
-
-    print('-' * 50)
 
     records = parse_log(lines)
+
     danger_records, root_cause = analyze_danger(records)
 
     write_report(records, danger_records, root_cause)
+
     save_reversed_logs(lines)
     save_danger_logs(danger_records)
 
