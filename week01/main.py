@@ -193,16 +193,28 @@ def write_report(records, danger_records, root_cause, ):
 
     save_lines(lines, REPORT_FILE_PATH)
 
-def save_reversed_logs(records):
-    output_lines = ['timestamp,event,message\n']
+def save_reversed_logs(lines):
+    header = lines[0]
+    data_lines = lines[1:]
 
-    for record in reversed(records):
-        output_lines.append(
-            f'{record["timestamp"]},{record["event"]},{record["message"]}\n'
-        )
-        # print(f'{record["timestamp"]},{record["event"]},{record["message"]}')
+    output_lines = [header]
+
+    print('\n로그 시간 역순 출력')
+    print('-' * 50)
+
+    print(header.strip())
+    for line in reversed(data_lines):
+        print(line.strip())
+
+    print('-' * 50)
+
+
+    for line in reversed(data_lines):
+        output_lines.append(line)
+
 
     save_lines(output_lines, REVERSED_FILE_PATH)
+
 
 def save_danger_logs(danger_records):
     output_lines = ['timestamp,event,score,message\n']
@@ -248,7 +260,7 @@ def main():
 
 
     write_report(records, danger_records, root_cause)
-    save_reversed_logs(records)
+    save_reversed_logs(lines)
     save_danger_logs(danger_records)
 
     print('\n모든 작업 완료')
