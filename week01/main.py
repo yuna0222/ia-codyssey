@@ -5,44 +5,43 @@ REVERSED_FILE_PATH = 'mission_computer_main_reversed.log'
 
 DANGER_THRESHOLD = 2
 
-
 DANGER_KEYWORDS = {
     # ── 4점: 사고 그 자체를 나타내는 단어들 ────────────────
-    'explosion': 4,      # 폭발
-    'exploded': 4,       # 폭발했다
-    'destroyed': 4,      # 파괴됨
-    'catastrophic': 4,   # 치명적 사고
+    'explosion': 4,  # 폭발
+    'exploded': 4,  # 폭발했다
+    'destroyed': 4,  # 파괴됨
+    'catastrophic': 4,  # 치명적 사고
 
     # ── 3점: 심각한 이상 상태 ───────────────────────────────
-    'unstable': 3,       # 불안정
-    'critical': 3,       # 위험 수준
-    'failure': 3,        # 실패 / 고장
-    'failed': 3,         # 고장났다
-    'shutdown': 3,       # 시스템 종료
-    'emergency': 3,      # 비상사태
-    'lost': 3,           # 신호/연결 손실
+    'unstable': 3,  # 불안정
+    'critical': 3,  # 위험 수준
+    'failure': 3,  # 실패 / 고장
+    'failed': 3,  # 고장났다
+    'shutdown': 3,  # 시스템 종료
+    'emergency': 3,  # 비상사태
+    'lost': 3,  # 신호/연결 손실
 
     # ── 2점: 경고성 표현 ────────────────────────────────────
-    'warning': 2,        # 경고
-    'abnormal': 2,       # 비정상
-    'unexpected': 2,     # 예상치 못한
-    'error': 2,          # 오류
-    'issue': 2,          # 문제
-    'problem': 2,        # 문제
-    'exceeded': 2,       # 초과됨
-    'drop': 2,           # 급락
-    'leak': 2,           # 누출
+    'warning': 2,  # 경고
+    'abnormal': 2,  # 비정상
+    'unexpected': 2,  # 예상치 못한
+    'error': 2,  # 오류
+    'issue': 2,  # 문제
+    'problem': 2,  # 문제
+    'exceeded': 2,  # 초과됨
+    'drop': 2,  # 급락
+    'leak': 2,  # 누출
 
     # ── 1점: 약한 주의 신호 ─────────────────────────────────
-    'fluctuation': 1,    # 진동/변동
-    'intermittent': 1,   # 간헐적
-    'delay': 1,          # 지연
-    'slow': 1,           # 느림
-    'high': 1,           # 높은 (수치가 높다는 의미)
-    'low': 1,            # 낮은 (수치가 낮다는 의미)
-    'pressure': 1,       # 압력 (문맥상 주의 필요)
-    'noticeable': 1,     # 눈에 띄는 (이상 감지 가능성)
-    'powered down': 1,   # 전원 꺼짐
+    'fluctuation': 1,  # 진동/변동
+    'intermittent': 1,  # 간헐적
+    'delay': 1,  # 지연
+    'slow': 1,  # 느림
+    'high': 1,  # 높은 (수치가 높다는 의미)
+    'low': 1,  # 낮은 (수치가 낮다는 의미)
+    'pressure': 1,  # 압력 (문맥상 주의 필요)
+    'noticeable': 1,  # 눈에 띄는 (이상 감지 가능성)
+    'powered down': 1,  # 전원 꺼짐
 }
 
 
@@ -73,8 +72,8 @@ def read_log_file(file_path):
     except OSError as error:
         print(f'[오류] 파일 시스템 오류가 발생했어요: {error}')
 
-
     return lines
+
 
 def parse_log(lines):
     records = []
@@ -99,7 +98,6 @@ def parse_log(lines):
     return records
 
 
-
 # 위험 점수 계산
 def calculate_danger_score(message):
     total = 0
@@ -110,6 +108,7 @@ def calculate_danger_score(message):
             total += score
 
     return total
+
 
 def analyze_danger(records):
     for record in records:
@@ -189,8 +188,8 @@ def write_report(records, danger_records, root_cause, ):
             '로그 분석 결과, 특정한 사고 원인을 명확하게 식별할 수 없습니다.\n\n'
         )
 
-
     save_lines(lines, REPORT_FILE_PATH)
+
 
 def save_reversed_logs(lines):
     header = lines[0]
@@ -207,10 +206,8 @@ def save_reversed_logs(lines):
 
     print('-' * 50)
 
-
     for line in reversed(data_lines):
         output_lines.append(line)
-
 
     save_lines(output_lines, REVERSED_FILE_PATH)
 
@@ -256,7 +253,6 @@ def main():
 
     records = parse_log(lines)
     danger_records, root_cause = analyze_danger(records)
-
 
     write_report(records, danger_records, root_cause)
     save_reversed_logs(lines)
