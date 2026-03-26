@@ -57,11 +57,9 @@ def read_log_file(file_path):
 
     except FileNotFoundError:
         print(f'[오류] 파일을 찾을 수 없어요: {file_path}')
-        print('       경로와 파일 이름을 다시 확인해 보세요!')
 
     except PermissionError:
         print(f'[오류] 파일 읽기 권한이 없어요: {file_path}')
-        print('       파일 속성에서 읽기 권한을 확인해 보세요!')
 
     except UnicodeDecodeError:
         print(f'[오류] 파일 인코딩 문제가 있어요. CP949로 다시 시도할게요...')
@@ -97,16 +95,30 @@ def parse_log(lines):
             })
 
     print('로그 전체 출력')
-    print('-' * 50)
+    print('-' * 60)
 
     for line in lines:
         print(line.strip())
 
-    print('-' * 50)
+    print('-' * 60)
 
     records.sort(key=lambda record: record['timestamp'])
 
     return records
+
+
+def print_records_as_list(records):
+    print('리스트 객체 출력')
+    print('-' * 60)
+
+    for index, record in enumerate(records):
+        print(f'[{index:<2}]')
+        print(f'  timestamp : {record["timestamp"]}')
+        print(f'  event     : {record["event"]}')
+        print(f'  message   : {record["message"]}')
+        print('-' * 60)
+
+    print('=' * 60)
 
 
 # 위험 점수 계산
@@ -289,11 +301,10 @@ def save_as_json(log_dict, file_path):
 
 def search_logs(log_dict, keyword):
     keyword_lower = keyword.lower()
-    results = []  # 검색 결과를 담을 리스트
+    results = []
 
-    # 딕셔너리를 .items()로 순회하면 key, value를 함께 꺼낼 수 있어요
-    for timestamp, infos in log_dict.items():
-        for info in infos:
+    for timestamp, info_list in log_dict.items():
+        for info in info_list:
             if keyword_lower in info['message'].lower():
                 results.append({
                     'timestamp': timestamp,
@@ -301,9 +312,8 @@ def search_logs(log_dict, keyword):
                     'message': info['message'],
                 })
 
-    # 검색 결과 출력
     print('\n' + '=' * 60)
-    print(f'  [보너스] 검색어: "{keyword}"  →  {len(results)}건 발견')
+    print(f' 검색어: "{keyword}"  →  {len(results)}건 발견')
     print('=' * 60)
 
     if results:
@@ -313,7 +323,7 @@ def search_logs(log_dict, keyword):
             print(f'  메시지  : {r["message"]}')
             print('  ' + '-' * 40)
     else:
-        print(f'  "{keyword}" 를 포함한 로그가 없어요.')
+        print(f'  "{keyword}" 를 포함한 메시지가 없어요.')
 
     print('=' * 60)
 
@@ -330,6 +340,7 @@ def main():
         return
 
     records = parse_log(lines)
+    print_records_as_list(records)
 
     danger_records, root_cause = analyze_danger(records)
 
