@@ -1,7 +1,10 @@
+import json
+
 LOG_FILE_PATH = 'mission_computer_main.log'
 REPORT_FILE_PATH = 'log_analysis.md'
 PROBLEMS_FILE_PATH = 'mission_computer_main_danger.log'
 REVERSED_FILE_PATH = 'mission_computer_main_reversed.log'
+JSON_FILE_PATH = 'mission_computer_main.json'
 
 DANGER_THRESHOLD = 2
 
@@ -54,11 +57,9 @@ def read_log_file(file_path):
 
     except FileNotFoundError:
         print(f'[오류] 파일을 찾을 수 없어요: {file_path}')
-        print('       경로와 파일 이름을 다시 확인해 보세요!')
 
     except PermissionError:
         print(f'[오류] 파일 읽기 권한이 없어요: {file_path}')
-        print('       파일 속성에서 읽기 권한을 확인해 보세요!')
 
     except UnicodeDecodeError:
         print(f'[오류] 파일 인코딩 문제가 있어요. CP949로 다시 시도할게요...')
@@ -94,17 +95,30 @@ def parse_log(lines):
             })
 
     print('로그 전체 출력')
-    print('-' * 50)
+    print('-' * 60)
 
     for line in lines:
         print(line.strip())
 
-    print('-' * 50)
-
+    print('-' * 60)
 
     records.sort(key=lambda record: record['timestamp'])
 
     return records
+
+
+def print_records_as_list(records):
+    print('리스트 객체 출력')
+    print('-' * 60)
+
+    for index, record in enumerate(records):
+        print(f'[{index:<2}]')
+        print(f'  timestamp : {record["timestamp"]}')
+        print(f'  event     : {record["event"]}')
+        print(f'  message   : {record["message"]}')
+        print('-' * 60)
+
+    print('=' * 60)
 
 
 # 위험 점수 계산
@@ -200,23 +214,26 @@ def write_report(records, danger_records, root_cause, ):
     save_lines(lines, REPORT_FILE_PATH)
 
 
-def save_reversed_logs(lines):
-    header = lines[0]
-    data_lines = lines[1:]
+def save_reversed_logs(records):
+    output_lines = ['timestamp,event,message\n']
 
-    output_lines = [header]
+    reversed_records = sorted(
+        records,
+        key=lambda l: l['timestamp'],
+        reverse=True
+    )
 
-    print('\n로그 시간 역순 출력')
+    print('로그 시간 역순 출력')
     print('-' * 50)
 
-    print(header.strip())
-    for line in reversed(data_lines):
-        print(line.strip())
+    print(output_lines[0].strip())
+    for record in reversed_records:
+        print(f'{record["timestamp"]},{record["event"]},{record["message"]}')
 
     print('-' * 50)
 
-    for line in reversed(data_lines):
-        output_lines.append(line)
+    for record in reversed_records:
+        output_lines.append(f'{record["timestamp"]},{record["event"]},{record["message"]}\n')
 
     save_lines(output_lines, REVERSED_FILE_PATH)
 
@@ -226,7 +243,7 @@ def save_danger_logs(danger_records):
 
     sorted_records = sorted(
         danger_records,
-        key=lambda record: record['score'],
+        key=lambda l: l['score'],
         reverse=True
     )
 
@@ -243,6 +260,80 @@ def save_danger_logs(danger_records):
     save_lines(output_lines, PROBLEMS_FILE_PATH)
 
 
+def convert_to_dict(records):
+    log_dict = {}
+
+    for record in records:
+        ts = record.get('timestamp')
+
+        if not ts:
+            print("timestamp가 없습니다")
+            continue
+
+        entry = {
+            'event': record.get('event', ''),
+            'message': record.get('message', ''),
+        }
+
+        if ts in log_dict:
+            log_dict[ts].append(entry)
+        else:
+            log_dict[ts] = [entry]
+
+    return log_dict
+
+
+def save_as_json(log_dict, file_path):
+    try:
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(
+                log_dict,
+                json_file,
+                ensure_ascii=False,
+                indent=4
+            )
+
+    except PermissionError:
+        print(f'JSON 파일 쓰기 권한이 없어요: {file_path}')
+    except OSError as error:
+        print(f'JSON 파일 저장 중 오류가 발생했어요: {error}')
+
+
+def search_logs(log_dict, keyword):
+    if not keyword or not keyword.strip():
+        print("\n[오류] 검색어를 입력해주세요.")
+        return []
+
+    keyword_lower = keyword.lower()
+    results = []
+
+    for timestamp, info_list in log_dict.items():
+        for info in info_list:
+            if keyword_lower in info['message'].lower():
+                results.append({
+                    'timestamp': timestamp,
+                    'event': info['event'],
+                    'message': info['message'],
+                })
+
+    print('\n' + '=' * 60)
+    print(f' 검색어: "{keyword}"  →  {len(results)}건 발견')
+    print('=' * 60)
+
+    if results:
+        for r in results:
+            print(f'  시각    : {r["timestamp"]}')
+            print(f'  이벤트  : {r["event"]}')
+            print(f'  메시지  : {r["message"]}')
+            print('  ' + '-' * 40)
+    else:
+        print(f'  "{keyword}" 를 포함한 메시지가 없어요.')
+
+    print('=' * 60)
+
+    return results
+
+
 def main():
     print('Hello Mars\n')
 
@@ -252,16 +343,21 @@ def main():
         print('프로그램 종료')
         return
 
-
-
     records = parse_log(lines)
+    print_records_as_list(records)
 
     danger_records, root_cause = analyze_danger(records)
 
     write_report(records, danger_records, root_cause)
 
-    save_reversed_logs(lines)
+    save_reversed_logs(records)
     save_danger_logs(danger_records)
+
+    log_dict = convert_to_dict(records)
+    save_as_json(log_dict, JSON_FILE_PATH)
+
+    keyword = input('검색어 입력: ')
+    search_logs(log_dict, keyword)
 
     print('\n모든 작업 완료')
 
