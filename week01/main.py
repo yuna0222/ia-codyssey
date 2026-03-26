@@ -252,10 +252,21 @@ def convert_to_dict(records):
     log_dict = {}
 
     for record in records:
-        log_dict[record['timestamp']] = {
-            'event': record['event'],
-            'message': record['message'],
+        ts = record.get('timestamp')
+
+        if not ts:
+            print("timestamp가 없습니다")
+            continue
+
+        entry = {
+            'event': record.get('event', ''),
+            'message': record.get('message', ''),
         }
+
+        if ts in log_dict:
+            log_dict[ts].append(entry)
+        else:
+            log_dict[ts] = [entry]
 
     return log_dict
 
@@ -271,9 +282,9 @@ def save_as_json(log_dict, file_path):
             )
 
     except PermissionError:
-        print(f'[오류] JSON 파일 쓰기 권한이 없어요: {file_path}')
+        print(f'JSON 파일 쓰기 권한이 없어요: {file_path}')
     except OSError as error:
-        print(f'[오류] JSON 파일 저장 중 오류가 발생했어요: {error}')
+        print(f'JSON 파일 저장 중 오류가 발생했어요: {error}')
 
 
 def search_logs(log_dict, keyword):
@@ -281,13 +292,14 @@ def search_logs(log_dict, keyword):
     results = []  # 검색 결과를 담을 리스트
 
     # 딕셔너리를 .items()로 순회하면 key, value를 함께 꺼낼 수 있어요
-    for timestamp, info in log_dict.items():
-        if keyword_lower in info['message'].lower():
-            results.append({
-                'timestamp': timestamp,
-                'event': info['event'],
-                'message': info['message'],
-            })
+    for timestamp, infos in log_dict.items():
+        for info in infos:
+            if keyword_lower in info['message'].lower():
+                results.append({
+                    'timestamp': timestamp,
+                    'event': info['event'],
+                    'message': info['message'],
+                })
 
     # 검색 결과 출력
     print('\n' + '=' * 60)
@@ -329,7 +341,7 @@ def main():
     log_dict = convert_to_dict(records)
     save_as_json(log_dict, JSON_FILE_PATH)
 
-    keyword = input('  검색어 입력 → ')
+    keyword = input('검색어 입력: ')
     search_logs(log_dict, keyword)
 
     print('\n모든 작업 완료')
