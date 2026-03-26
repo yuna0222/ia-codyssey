@@ -300,6 +300,10 @@ def save_as_json(log_dict, file_path):
 
 
 def search_logs(log_dict, keyword):
+    if not keyword or not keyword.strip():
+        print("\n[오류] 검색어를 입력해주세요.")
+        return []
+
     keyword_lower = keyword.lower()
     results = []
 
