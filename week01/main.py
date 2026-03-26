@@ -1,7 +1,10 @@
+import json
+
 LOG_FILE_PATH = 'mission_computer_main.log'
 REPORT_FILE_PATH = 'log_analysis.md'
 PROBLEMS_FILE_PATH = 'mission_computer_main_danger.log'
 REVERSED_FILE_PATH = 'mission_computer_main_reversed.log'
+JSON_FILE_PATH = 'mission_computer_main.json'
 
 DANGER_THRESHOLD = 2
 
@@ -101,7 +104,6 @@ def parse_log(lines):
 
     print('-' * 50)
 
-
     records.sort(key=lambda record: record['timestamp'])
 
     return records
@@ -200,23 +202,26 @@ def write_report(records, danger_records, root_cause, ):
     save_lines(lines, REPORT_FILE_PATH)
 
 
-def save_reversed_logs(lines):
-    header = lines[0]
-    data_lines = lines[1:]
+def save_reversed_logs(records):
+    output_lines = ['timestamp,event,message\n']
 
-    output_lines = [header]
+    reversed_records = sorted(
+        records,
+        key=lambda l: l['timestamp'],
+        reverse=True
+    )
 
-    print('\n로그 시간 역순 출력')
+    print('로그 시간 역순 출력')
     print('-' * 50)
 
-    print(header.strip())
-    for line in reversed(data_lines):
-        print(line.strip())
+    print(output_lines[0].strip())
+    for record in reversed_records:
+        print(f'{record["timestamp"]},{record["event"]},{record["message"]}')
 
     print('-' * 50)
 
-    for line in reversed(data_lines):
-        output_lines.append(line)
+    for record in reversed_records:
+        output_lines.append(f'{record["timestamp"]},{record["event"]},{record["message"]}\n')
 
     save_lines(output_lines, REVERSED_FILE_PATH)
 
@@ -226,7 +231,7 @@ def save_danger_logs(danger_records):
 
     sorted_records = sorted(
         danger_records,
-        key=lambda record: record['score'],
+        key=lambda l: l['score'],
         reverse=True
     )
 
@@ -243,6 +248,66 @@ def save_danger_logs(danger_records):
     save_lines(output_lines, PROBLEMS_FILE_PATH)
 
 
+def convert_to_dict(records):
+    log_dict = {}
+
+    for record in records:
+        log_dict[record['timestamp']] = {
+            'event': record['event'],
+            'message': record['message'],
+        }
+
+    return log_dict
+
+
+def save_as_json(log_dict, file_path):
+    try:
+        with open(file_path, 'w', encoding='utf-8') as json_file:
+            json.dump(
+                log_dict,
+                json_file,
+                ensure_ascii=False,
+                indent=4
+            )
+
+    except PermissionError:
+        print(f'[오류] JSON 파일 쓰기 권한이 없어요: {file_path}')
+    except OSError as error:
+        print(f'[오류] JSON 파일 저장 중 오류가 발생했어요: {error}')
+
+
+def search_logs(log_dict, keyword):
+    keyword_lower = keyword.lower()
+    results = []  # 검색 결과를 담을 리스트
+
+    # 딕셔너리를 .items()로 순회하면 key, value를 함께 꺼낼 수 있어요
+    for timestamp, info in log_dict.items():
+        if keyword_lower in info['message'].lower():
+            results.append({
+                'timestamp': timestamp,
+                'event': info['event'],
+                'message': info['message'],
+            })
+
+    # 검색 결과 출력
+    print('\n' + '=' * 60)
+    print(f'  [보너스] 검색어: "{keyword}"  →  {len(results)}건 발견')
+    print('=' * 60)
+
+    if results:
+        for r in results:
+            print(f'  시각    : {r["timestamp"]}')
+            print(f'  이벤트  : {r["event"]}')
+            print(f'  메시지  : {r["message"]}')
+            print('  ' + '-' * 40)
+    else:
+        print(f'  "{keyword}" 를 포함한 로그가 없어요.')
+
+    print('=' * 60)
+
+    return results
+
+
 def main():
     print('Hello Mars\n')
 
@@ -252,16 +317,20 @@ def main():
         print('프로그램 종료')
         return
 
-
-
     records = parse_log(lines)
 
     danger_records, root_cause = analyze_danger(records)
 
     write_report(records, danger_records, root_cause)
 
-    save_reversed_logs(lines)
+    save_reversed_logs(records)
     save_danger_logs(danger_records)
+
+    log_dict = convert_to_dict(records)
+    save_as_json(log_dict, JSON_FILE_PATH)
+
+    keyword = input('  검색어 입력 → ')
+    search_logs(log_dict, keyword)
 
     print('\n모든 작업 완료')
 
