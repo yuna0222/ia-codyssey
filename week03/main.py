@@ -48,7 +48,7 @@ class DummySensor:
         try:
             try:
                 with open(log_file, 'r', encoding='utf-8') as f:
-                    is_new_file = (f.read(1) == '')
+                    is_new_file = (f.read().strip() == '')
             except FileNotFoundError:
                 is_new_file = True
 
