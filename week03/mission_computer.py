@@ -39,7 +39,7 @@ class MissionComputer:
         self.history = {key: [] for key in ENV_KEYS}
 
     def get_sensor_data(self):
-        print('[안내] 정지하려면 Ctrl+C 를 누르세요.')
+        print('[info] 정지하려면 Ctrl+C 를 누르세요.')
 
         count = 0
 
@@ -67,4 +67,4 @@ class MissionComputer:
                 time.sleep(5)
 
         except KeyboardInterrupt:
-            print('\nSystem stopped....')
+            print('\n시스템이 종료됩니다.')
