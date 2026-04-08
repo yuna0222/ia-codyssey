@@ -19,8 +19,8 @@ ENV_KEYS = [
     internal_oxygen,
 ]
 
-class DummySensor:
 
+class DummySensor:
     def __init__(self):
         self.env_values = {key: 0.0 for key in ENV_KEYS}
 
@@ -87,20 +87,3 @@ class DummySensor:
 
         except OSError as error:
             print(f'[오류] 로그 파일 저장 중 문제가 생겼어요: {error}')
-
-def main():
-    ds = DummySensor()
-
-    # 랜덤데이터 할당
-    ds.set_env()
-
-    # 화면에 출력하고, 로그 파일에 기록한 뒤, env_values를 반환
-    env = ds.get_env()
-
-    print('\n[결과] 환경 데이터 확인')
-    for key, value in env.items():
-        print(f'    {key}: {value}')
-
-
-if __name__ == '__main__':
-    main()
