@@ -10,14 +10,21 @@ THRESHOLD = 50
 
 
 def read_csv(file_path):
-    # CSV 파일을 numpy ndarray로 읽어서 반환
-    return np.genfromtxt(
-        file_path,
-        delimiter=',',
-        dtype=None,
-        encoding='utf-8-sig',  # BOM(바이트 순서 표시) 있는 UTF-8 파일 처리
-        skip_header=1  # 첫 번째 줄(헤더) 건너뜀
-    )
+    try:
+        # CSV 파일을 numpy ndarray로 읽어서 반환
+        return np.genfromtxt(
+            file_path,
+            delimiter=',',
+            dtype=None,
+            encoding='utf-8-sig',  # BOM(바이트 순서 표시) 있는 UTF-8 파일 처리
+            skip_header=1  # 첫 번째 줄(헤더) 건너뜀
+        )
+
+    except FileNotFoundError:
+        print(f'[오류] 파일을 찾을 수 없어요: {file_path}')
+
+    except OSError as error:
+        print(f'[오류] 파일 읽기 중 문제가 생겼어요: {error}')
 
 
 def merge_arrays(arr1, arr2, arr3):
@@ -48,7 +55,7 @@ def calc_average(parts):
 def save_weak_parts(averages, file_path, threshold=THRESHOLD):
     weak_parts = [(name, avg) for name, avg in averages if avg < threshold]
 
-    print(f'\n평균 강도 {threshold} 미만 부품: {len(weak_parts)}개')
+    print(f'\n평균 강도 {threshold} 미만 부품: {len(weak_parts)}개:')
     for name, avg in weak_parts:
         print(f'  {name}: {avg}')
 
@@ -69,37 +76,24 @@ def save_weak_parts(averages, file_path, threshold=THRESHOLD):
 
 
 def load_and_transpose_parts(file_path):
-    try:
-        parts2 = np.genfromtxt(
-            file_path,
-            delimiter=',',
-            dtype=None,
-            encoding='utf-8',
-            skip_header=1
-        )
+    parts2 = read_csv(file_path)
 
-        print('[보너스] parts2 내용:')
-        print(parts2)
+    print('\nparts2 내용:')
+    print(parts2)
 
-        if parts2.size == 0:
-            print('[보너스] 전치할 데이터가 없습니다.')
-            return
+    if parts2.size == 0:
+        print('\n전치할 데이터가 없습니다.')
+        return
 
-        names_row = parts2['f0'].astype(str)  # 부품 이름 배열
-        values_row = parts2['f1'].astype(str)  # 강도 배열 (str로 통일)
-        matrix_2d = np.array([names_row, values_row])
+    names_row = parts2['f0'].astype(str)  # 부품 이름 배열
+    values_row = parts2['f1'].astype(str)  # 강도 배열 (str로 통일)
+    matrix_2d = np.array([names_row, values_row])
 
-        # 전치
-        parts3 = matrix_2d.T
+    # 전치
+    parts3 = matrix_2d.T
 
-        print('parts3 내용 (각 행 = [부품명, 평균강도]):')
-        print(parts3)
-
-    except FileNotFoundError:
-        print(f'[오류] 파일을 찾을 수 없어요: {file_path}')
-
-    except OSError as error:
-        print(f'[오류] 파일 읽기 중 문제가 생겼어요: {error}')
+    print('\nparts3 내용 (각 행 = [부품명, 평균강도]):')
+    print(parts3)
 
 
 def main():
