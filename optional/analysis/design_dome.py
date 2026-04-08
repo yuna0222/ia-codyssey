@@ -5,7 +5,6 @@ FILE_2 = 'mars_base_main_parts-002.csv'
 FILE_3 = 'mars_base_main_parts-003.csv'
 OUTPUT_FILE = 'parts_to_work_on.csv'
 
-# 평균 강도가 이 값보다 작으면 보강 대상이에요
 THRESHOLD = 50
 
 
