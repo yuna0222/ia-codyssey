@@ -53,8 +53,17 @@ class DummySensor:
     def write_log(self, timestamp, log_file=LOG_FILE_PATH):
         try:
             try:
-                with open(log_file, 'r', encoding='utf-8') as f:
-                    is_new_file = (f.read().strip() == '')
+                with open(log_file, 'r+', encoding='utf-8') as f:
+                    content = f.read()
+
+                    # 공백 제거 후 비어있으면 파일 초기화
+                    if content.strip() == '':
+                        f.seek(0)
+                        f.truncate()
+                        is_new_file = True
+                    else:
+                        is_new_file = False
+
             except FileNotFoundError:
                 is_new_file = True
 
