@@ -10,17 +10,19 @@ external_illuminance = 'mars_base_external_illuminance'
 internal_co2 = 'mars_base_internal_co2'
 internal_oxygen = 'mars_base_internal_oxygen'
 
+ENV_KEYS = [
+    internal_temperature,
+    external_temperature,
+    internal_humidity,
+    external_illuminance,
+    internal_co2,
+    internal_oxygen,
+]
 
 class DummySensor:
+
     def __init__(self):
-        self.env_values = {
-            internal_temperature: 0.0,
-            external_temperature: 0.0,
-            internal_humidity: 0.0,
-            external_illuminance: 0.0,
-            internal_co2: 0.0,
-            internal_oxygen: 0.0,
-        }
+        self.env_values = {key: 0.0 for key in ENV_KEYS}
 
     def set_env(self):
         self.env_values[internal_temperature] = round(random.uniform(18, 30), 1)
@@ -31,7 +33,6 @@ class DummySensor:
         self.env_values[internal_oxygen] = round(random.uniform(4, 7), 2)
 
     def get_env(self):
-
         timestamp = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
 
         print('\n' + '=' * 55)
@@ -50,7 +51,6 @@ class DummySensor:
         return self.env_values
 
     def write_log(self, timestamp, log_file=LOG_FILE_PATH):
-
         try:
             try:
                 with open(log_file, 'r', encoding='utf-8') as f:
@@ -59,7 +59,6 @@ class DummySensor:
                 is_new_file = True
 
             with open(log_file, 'a', encoding='utf-8') as f:
-
                 if is_new_file:
                     f.write(
                         'timestamp,'
@@ -81,14 +80,13 @@ class DummySensor:
                     f'{self.env_values[internal_oxygen]}\n'
                 )
 
-            print(f'[로그] 환경 데이터 기록 완료')
+            print('[로그] 환경 데이터 기록 완료')
 
         except PermissionError:
             print(f'[오류] 로그 파일 쓰기 권한이 없어요: {log_file}')
 
         except OSError as error:
             print(f'[오류] 로그 파일 저장 중 문제가 생겼어요: {error}')
-
 
 def main():
     ds = DummySensor()
