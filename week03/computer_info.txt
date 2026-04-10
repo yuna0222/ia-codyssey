@@ -1,0 +1,8 @@
+[2026-04-10 12:29:44] 미션 컴퓨터 시스템 정보
+{
+    "os": "Darwin",
+    "os_version": "Darwin Kernel Version 24.6.0: Mon Jul 14 11:30:40 PDT 2025; root:xnu-11417.140.69~1/RELEASE_ARM64_T8132",
+    "cpu_type": "arm",
+    "cpu_cores": 10,
+    "memory_total": "16.0 GB"
+}
