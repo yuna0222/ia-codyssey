@@ -1,0 +1,7 @@
+os
+os_version
+cpu_type
+cpu_cores
+memory_total
+cpu_usage_percent
+memory_usage_percent
