@@ -10,7 +10,7 @@ from PyQt5.QtGui import QFont
 # ──────────────────────────────────────────────
 # 버튼 배치 정의
 # 각 튜플: (표시 텍스트, 버튼 종류)
-#   'func' → 회색  (AC, +/-, %)
+#   'func' → 회색   (AC, +/-, %)
 #   'op'   → 주황색 (÷, ×, −, +, =)
 #   'num'  → 어두운 회색 (숫자, .)
 # ──────────────────────────────────────────────
@@ -29,7 +29,7 @@ COLORS = {
     'num':  ('#333333', '#ffffff', '#4d4d4d'),
 }
 
-# 표시용 연산자 → Python 연산자 변환 테이블
+# 표시용 연산자 → Python 연산자 변환 (계산 시 사용)
 OP_MAP = {
     '÷': '/',
     '×': '*',
@@ -37,28 +37,24 @@ OP_MAP = {
     '+': '+',
 }
 
-# Python 연산자 → 표시용 연산자 역변환 (수식 재구성에 사용)
-OP_DISPLAY = {v: k for k, v in OP_MAP.items()}
-
 
 class Calculator(QWidget):
     """
     아이폰 스타일 계산기.
-    디스플레이에 '2+3÷9' 처럼 입력 수식 전체를 보여줍니다.
+    버튼을 누를 때마다 수식 문자열에 그대로 추가하고,
+    = 를 눌렀을 때만 계산 결과를 표시합니다.
     """
 
     def __init__(self):
         """상태 변수 초기화 및 UI 구성."""
         super().__init__()
 
-        # ── 내부 상태 변수 ─────────────────────────
-        # _operand1   : 첫 번째 피연산자 (float)
-        # _operator   : 현재 연산자 ('/', '*', '-', '+')
-        # _operand2   : 두 번째 피연산자 입력 중인 문자열
-        # _just_result: True 이면 방금 = 를 눌러 결과가 나온 상태
-        self._operand1 = None
-        self._operator = None
-        self._operand2 = '0'
+        # 화면에 보이는 수식 문자열 (예: '2+3÷9')
+        # 숫자와 연산자를 그냥 이어붙여서 관리합니다.
+        self._expression = '0'
+
+        # = 를 눌러 결과가 나온 직후인지 나타내는 플래그.
+        # True 상태에서 숫자를 누르면 새 수식을 시작합니다.
         self._just_result = False
 
         self._init_ui()
@@ -68,7 +64,7 @@ class Calculator(QWidget):
     # ──────────────────────────────────────────
 
     def _init_ui(self):
-        """윈도우 기본 설정, 레이아웃, 디스플레이, 버튼 그리드를 구성합니다."""
+        """윈도우 설정, 디스플레이 라벨, 버튼 그리드를 구성합니다."""
         self.setWindowTitle('계산기')
         self.setFixedSize(320, 520)
         self.setStyleSheet('background-color: #000000;')
@@ -78,16 +74,14 @@ class Calculator(QWidget):
         main_layout.setSpacing(0)
         self.setLayout(main_layout)
 
-        # 수식 전체를 보여주는 디스플레이 라벨
         self._label = self._make_display()
         main_layout.addWidget(self._label)
-
         main_layout.addLayout(self._make_grid())
 
     def _make_display(self):
         """
-        수식 표시 라벨을 생성합니다.
-        오른쪽 아래 정렬, 흰색 큰 폰트로 '2+3÷9' 같은 형태를 보여줍니다.
+        수식을 표시하는 상단 라벨을 생성합니다.
+        오른쪽 아래 정렬, 흰색 큰 폰트.
         """
         label = QLabel('0')
         label.setAlignment(Qt.AlignRight | Qt.AlignBottom)
@@ -129,7 +123,6 @@ class Calculator(QWidget):
         btn.setFont(QFont('Arial', 22, 50))
         btn.setCursor(Qt.PointingHandCursor)
 
-        # 둥근 원형 버튼, 호버/눌림 시 배경색 변경
         btn.setStyleSheet(f'''
             QPushButton {{
                 background-color: {bg};
@@ -149,45 +142,15 @@ class Calculator(QWidget):
         return btn
 
     # ──────────────────────────────────────────
-    # 디스플레이 수식 조합
-    # ──────────────────────────────────────────
-
-    def _build_expression(self):
-        """
-        현재 상태 변수를 조합해 디스플레이에 표시할 수식 문자열을 만듭니다.
-
-        예)
-          operand1=2, operator='+', operand2='3'  → '2+3'
-          operand1=None, operand2='0'             → '0'
-
-        Returns:
-            str: 화면에 표시할 수식 문자열
-        """
-        if self._operand1 is None:
-            # 아직 연산자를 누르지 않은 상태 → 두 번째 입력란만 표시
-            return self._operand2
-
-        # operand1 을 정수처럼 표시할 수 있으면 소수점 없이 보여줌
-        op1_str = self._format_number(self._operand1)
-        # 연산자를 표시용 기호로 변환 (예: '/' → '÷')
-        op_symbol = OP_DISPLAY.get(self._operator, self._operator)
-
-        if self._just_result:
-            # = 를 눌러 결과가 나온 직후 → 결과값만 표시
-            return self._operand2
-
-        return f'{op1_str}{op_symbol}{self._operand2}'
-
-    # ──────────────────────────────────────────
     # 버튼 이벤트 처리
     # ──────────────────────────────────────────
 
     def _on_button_clicked(self, text):
         """
-        클릭된 버튼 텍스트에 따라 적절한 처리 함수로 분기합니다.
+        클릭된 버튼에 따라 처리를 분기합니다.
 
         Args:
-            text (str): 클릭된 버튼의 텍스트
+            text (str): 클릭된 버튼 텍스트
         """
         if text == 'AC':
             self._reset()
@@ -195,166 +158,251 @@ class Calculator(QWidget):
             self._toggle_sign()
         elif text == '%':
             self._percent()
-        elif text in OP_MAP:
-            self._set_operator(text)
         elif text == '=':
             self._calculate()
+        elif text in OP_MAP:
+            self._append_operator(text)
         else:
-            self._input_digit(text)
+            # 숫자 또는 소수점
+            self._append_digit(text)
 
     def _reset(self):
-        """AC: 모든 상태를 초기화하고 화면을 '0' 으로 되돌립니다."""
-        self._operand1 = None
-        self._operator = None
-        self._operand2 = '0'
+        """AC: 수식을 초기화하고 화면을 '0' 으로 되돌립니다."""
+        self._expression = '0'
         self._just_result = False
         self._update_display()
 
     def _toggle_sign(self):
         """
-        +/- : 현재 입력 중인 숫자(_operand2)의 부호를 반전합니다.
-        예) '5' → '-5',  '-3.2' → '3.2'
+        +/-: 수식의 마지막 숫자 부분의 부호를 반전합니다.
+        예) '12' → '-12',  '3+5' → '3+-5'
         """
-        if self._operand2 not in ('0', ''):
-            if self._operand2.startswith('-'):
-                self._operand2 = self._operand2[1:]
+        # 수식 끝의 숫자 토큰만 추출해서 부호 반전
+        last = self._last_number_str()
+        if last and last != '0':
+            if last.startswith('-'):
+                new_last = last[1:]
             else:
-                self._operand2 = '-' + self._operand2
+                new_last = '-' + last
+            # 수식에서 마지막 숫자 부분을 교체
+            self._expression = self._expression[:-len(last)] + new_last
             self._update_display()
 
     def _percent(self):
         """
-        % : 현재 입력 중인 숫자를 100으로 나눕니다.
-        예) '50' → '0.5'
+        %: 수식의 마지막 숫자를 100으로 나눕니다.
+        예) '50' → '0.5',  '3+50' → '3+0.5'
         """
-        try:
-            value = float(self._operand2) / 100
-            self._operand2 = self._format_number(value)
-            self._update_display()
-        except ValueError:
-            pass
+        last = self._last_number_str()
+        if last:
+            try:
+                value = float(last) / 100
+                new_last = self._format_number(value)
+                self._expression = self._expression[:-len(last)] + new_last
+                self._update_display()
+            except ValueError:
+                pass
 
-    def _input_digit(self, digit):
+    def _append_digit(self, digit):
         """
-        숫자(0~9) 또는 소수점(.) 입력을 처리합니다.
-        = 를 누른 직후라면 새 계산을 시작합니다.
+        숫자(0~9) 또는 소수점(.)을 수식 문자열 끝에 추가합니다.
 
         Args:
             digit (str): 입력된 문자
         """
-        # = 직후 숫자를 누르면 새 계산 시작 (이전 결과 초기화)
+        # = 직후 숫자를 누르면 새 수식 시작
         if self._just_result:
-            self._operand1 = None
-            self._operator = None
-            self._operand2 = '0'
+            self._expression = ''
             self._just_result = False
 
         if digit == '.':
-            # 소수점 중복 방지
-            if '.' not in self._operand2:
-                self._operand2 += '.'
+            last = self._last_number_str()
+            # 마지막 숫자에 이미 소수점이 있으면 무시
+            if '.' not in last:
+                # 수식이 비거나 연산자로 끝나면 '0.' 으로 시작
+                if not last:
+                    self._expression += '0.'
+                else:
+                    self._expression += '.'
         else:
-            if self._operand2 == '0':
-                self._operand2 = digit
-            elif self._operand2 == '-0':
-                self._operand2 = '-' + digit
+            last = self._last_number_str()
+            if last == '0':
+                # '0' 하나만 있을 때 숫자를 누르면 대체
+                self._expression = self._expression[:-1] + digit
+            elif len(last.replace('-', '').replace('.', '')) >= 9:
+                # 최대 9자리 제한
+                pass
             else:
-                # 최대 9자리 입력 허용 (부호·소수점 제외)
-                digits_only = self._operand2.replace('-', '').replace('.', '')
-                if len(digits_only) < 9:
-                    self._operand2 += digit
+                if self._expression == '0':
+                    # 초기 상태의 '0' 을 대체
+                    self._expression = digit
+                else:
+                    self._expression += digit
 
         self._update_display()
 
-    def _set_operator(self, op_text):
+    def _append_operator(self, op_text):
         """
-        연산자(÷ × − +) 버튼 처리.
-        - 이미 수식이 완성된 상태라면 먼저 계산하고 연산자를 이어붙입니다.
-        - 이미지처럼 '2+3÷9' 형태로 수식이 화면에 쌓입니다.
+        연산자(÷ × − +)를 수식 문자열 끝에 추가합니다.
+        수식이 이미 연산자로 끝나면 마지막 연산자를 교체합니다.
 
         Args:
-            op_text (str): 버튼에 표시된 연산자 기호
+            op_text (str): 버튼에 표시된 연산자 기호 ('÷', '×', '−', '+')
         """
-        try:
-            if self._operand1 is not None and not self._just_result:
-                # 앞에 이미 수식이 있으면 중간 계산 먼저 수행
-                self._calculate(keep_chain=True)
+        # = 직후 연산자를 누르면 결과에 이어서 수식 작성
+        self._just_result = False
 
-            self._operand1 = float(self._operand2)
-            self._operator = OP_MAP[op_text]   # 표시용 → Python 연산자
-            self._operand2 = '0'               # 두 번째 피연산자 입력 대기
-            self._just_result = False
-        except ValueError:
-            pass
+        # 수식이 연산자로 끝나면 마지막 연산자를 새 연산자로 교체
+        if self._expression and self._expression[-1] in OP_MAP:
+            self._expression = self._expression[:-1] + op_text
+        else:
+            self._expression += op_text
 
         self._update_display()
 
-    def _calculate(self, keep_chain=False):
+    def _calculate(self):
         """
-        = 버튼 또는 연산자 연속 입력 시 4칙 연산을 수행합니다.
+        = 버튼: 현재 수식 문자열을 계산해 결과를 화면에 표시합니다.
 
-        Args:
-            keep_chain (bool):
-                True  → 연산자를 연속으로 눌렀을 때의 중간 계산.
-                         결과를 _operand1 에 저장하고 수식을 이어갑니다.
-                False → = 버튼. 결과를 화면에 표시하고 수식을 종료합니다.
+        표시용 기호(÷ × −)를 Python 연산자(/ * -)로 치환한 뒤
+        eval() 없이 직접 토큰을 파싱해 안전하게 계산합니다.
         """
-        if self._operator is None or self._operand1 is None:
-            return
-
         try:
-            operand2 = float(self._operand2)
-
-            # 0 나누기 처리
-            if self._operator == '/' and operand2 == 0:
-                self._operand2 = 'Error'
-                self._operand1 = None
-                self._operator = None
-                self._just_result = True
-                self._update_display()
-                return
-
-            # 4칙 연산 수행
-            if self._operator == '+':
-                result = self._operand1 + operand2
-            elif self._operator == '-':
-                result = self._operand1 - operand2
-            elif self._operator == '*':
-                result = self._operand1 * operand2
-            elif self._operator == '/':
-                result = self._operand1 / operand2
-            else:
-                return
-
-            result_str = self._format_number(result)
-
-            if keep_chain:
-                # 중간 계산: 결과를 다음 연산의 첫 번째 피연산자로 사용
-                self._operand1 = result
-                self._operand2 = result_str
-            else:
-                # = 최종 계산: 결과만 화면에 표시
-                self._operand1 = None
-                self._operator = None
-                self._operand2 = result_str
-                self._just_result = True
-
-        except (ValueError, ZeroDivisionError):
-            self._operand2 = 'Error'
-            self._operand1 = None
-            self._operator = None
+            result = self._eval_expression(self._expression)
+            self._expression = self._format_number(result)
+            self._just_result = True
+        except Exception:
+            self._expression = 'Error'
             self._just_result = True
 
         self._update_display()
 
     # ──────────────────────────────────────────
+    # 수식 계산 (eval 미사용, 직접 파싱)
+    # ──────────────────────────────────────────
+
+    def _eval_expression(self, expr):
+        """
+        수식 문자열을 직접 파싱해 4칙 연산을 계산합니다.
+        eval() 을 사용하지 않고 토큰 분리 → 곱셈·나눗셈 먼저 → 덧셈·뺄셈 순으로 처리합니다.
+        (예: '2+3×4' → 2 + (3×4) = 14)
+
+        Args:
+            expr (str): 표시용 수식 문자열 (예: '2+3÷9')
+
+        Returns:
+            float: 계산 결과
+
+        Raises:
+            ValueError: 파싱 실패
+            ZeroDivisionError: 0으로 나누기
+        """
+        # 표시용 기호 → Python 연산자로 변환
+        expr = expr.replace('÷', '/').replace('×', '*').replace('−', '-')
+
+        # 수식을 숫자와 연산자 토큰으로 분리
+        # 예: '2+3/-9' → ['2', '+', '3', '/', '-9']
+        tokens = self._tokenize(expr)
+        if not tokens:
+            raise ValueError('빈 수식')
+
+        # 숫자 토큰 리스트와 연산자 리스트로 분리
+        numbers = [float(tokens[i]) for i in range(0, len(tokens), 2)]
+        operators = [tokens[i] for i in range(1, len(tokens), 2)]
+
+        # 1단계: 곱셈과 나눗셈 먼저 처리 (연산자 우선순위)
+        i = 0
+        while i < len(operators):
+            if operators[i] in ('*', '/'):
+                if operators[i] == '/' and numbers[i + 1] == 0:
+                    raise ZeroDivisionError('0으로 나누기')
+                if operators[i] == '*':
+                    result = numbers[i] * numbers[i + 1]
+                else:
+                    result = numbers[i] / numbers[i + 1]
+                numbers[i] = result
+                numbers.pop(i + 1)
+                operators.pop(i)
+            else:
+                i += 1
+
+        # 2단계: 남은 덧셈·뺄셈 처리 (왼쪽에서 오른쪽)
+        result = numbers[0]
+        for i, op in enumerate(operators):
+            if op == '+':
+                result += numbers[i + 1]
+            elif op == '-':
+                result -= numbers[i + 1]
+
+        return result
+
+    def _tokenize(self, expr):
+        """
+        수식 문자열을 숫자와 연산자 토큰 리스트로 분리합니다.
+        음수 처리를 위해 수식 앞이나 연산자 직후의 '-' 는 숫자에 포함합니다.
+
+        Args:
+            expr (str): Python 연산자로 치환된 수식 문자열
+
+        Returns:
+            list[str]: 토큰 리스트 (예: ['2', '+', '-3', '/', '9'])
+        """
+        tokens = []
+        current = ''
+        ops = set('+-*/')
+
+        for i, ch in enumerate(expr):
+            if ch in ops:
+                # '-' 가 맨 앞이거나 직전 토큰이 연산자이면 음수 부호로 처리
+                if ch == '-' and (not tokens and not current
+                                  or tokens and not current):
+                    current += ch
+                else:
+                    if current:
+                        tokens.append(current)
+                        current = ''
+                    tokens.append(ch)
+            else:
+                current += ch
+
+        if current:
+            tokens.append(current)
+
+        return tokens
+
+    # ──────────────────────────────────────────
     # 내부 유틸리티
     # ──────────────────────────────────────────
 
+    def _last_number_str(self):
+        """
+        수식 문자열(_expression)에서 마지막 숫자 부분을 문자열로 반환합니다.
+        +/- 와 % 처리에서 마지막 숫자만 수정할 때 사용합니다.
+
+        예) '3+52'  → '52'
+            '10÷-3' → '-3'
+            '÷'     → ''
+
+        Returns:
+            str: 마지막 숫자 문자열 (없으면 빈 문자열)
+        """
+        # 뒤에서부터 숫자·소수점·부호 문자를 읽어 숫자 토큰을 추출
+        result = ''
+        for ch in reversed(self._expression):
+            if ch.isdigit() or ch == '.':
+                result = ch + result
+            elif ch == '-' and not result:
+                # 부호 '-' 는 앞에 연산자가 있을 때만 숫자의 일부
+                result = '-'
+                break
+            else:
+                break
+        return result
+
     def _format_number(self, value):
         """
-        float 를 표시용 문자열로 변환합니다.
-        - 정수이면 소수점 없이 표시 (예: 3.0 → '3')
+        float 를 화면 표시용 문자열로 변환합니다.
+        - 정수이면 소수점 없이 (예: 3.0 → '3')
         - 소수이면 뒤쪽 불필요한 0 제거 (예: 3.500 → '3.5')
 
         Args:
@@ -363,23 +411,20 @@ class Calculator(QWidget):
         Returns:
             str: 표시용 문자열
         """
-        if value != value:      # NaN 체크
+        if value != value:  # NaN 체크
             return 'Error'
-
         if value == int(value) and abs(value) < 1e10:
             return str(int(value))
-
         return f'{value:.8f}'.rstrip('0').rstrip('.')
 
     def _update_display(self):
         """
-        _build_expression() 으로 현재 수식을 만들어 라벨에 반영합니다.
-        수식 길이에 따라 폰트를 자동으로 줄여 잘리지 않게 합니다.
+        _expression 을 라벨에 반영합니다.
+        문자열 길이에 따라 폰트 크기를 자동으로 줄입니다.
         """
-        text = self._build_expression()
+        text = self._expression
         length = len(text)
 
-        # 글자 수에 따라 폰트 크기 단계적 축소
         if length <= 6:
             font_size = 48
         elif length <= 10:
@@ -398,9 +443,7 @@ class Calculator(QWidget):
 # ──────────────────────────────────────────────
 
 def main():
-    """
-    QApplication 을 생성하고 계산기 창을 띄운 뒤 이벤트 루프를 시작합니다.
-    """
+    """QApplication 생성 후 계산기 창을 띄우고 이벤트 루프를 시작합니다."""
     app = QApplication(sys.argv)
     window = Calculator()
     window.show()
