@@ -102,6 +102,8 @@ class Calculator:
         =: 현재 수식을 계산하고 결과를 저장합니다.
         0으로 나누거나 범위를 초과하면 오류 메시지를 표시합니다.
         """
+        if self._expression[-1] in OP_MAP:
+            return
         try:
             result = self._eval_expression(self._expression)
 
@@ -176,6 +178,10 @@ class Calculator:
         Args:
             op_text (str): 버튼에 표시된 연산자 기호 ('÷', '×', '−', '+')
         """
+
+        if self._expression.startswith('Error'):
+            self._expression = ''
+
         self._just_result = False
 
         if self._expression and self._expression[-1] in OP_MAP:
