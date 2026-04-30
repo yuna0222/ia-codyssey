@@ -180,7 +180,7 @@ class Calculator:
         """
 
         if self._expression.startswith('Error'):
-            self._expression = ''
+            return
 
         self._just_result = False
 
