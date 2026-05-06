@@ -1,79 +1,96 @@
-# Week03~04 - 화성 기지 더미 센서 및 미션 컴퓨터 구현
+# 미션 컴퓨터 모니터링
 
-## 1. 문제 정의
+문제 8, 문제 9에서 사용하는 미션 컴퓨터 시스템 정보 조회 및 모니터링 프로그램입니다.
 
-화성 기지의 돔을 복구한 뒤, 기지 내부에서 직접 생존 환경을 확인할 수 있는 시스템이 필요해졌다.
-
-이를 위해 먼저 실제 센서 대신 테스트용 **더미 센서(DummySensor)** 를 구현하고,
-
-이후 더미 센서가 생성한 환경 데이터를 미션 컴퓨터(**MissionComputer**)가 받아
-
-주기적으로 출력하고 확인할 수 있도록 구성하였다.
-
-이번 과제에서는 다음 두 가지를 단계적으로 구현했다.
-
-- **Week03**: 더미 센서 구현
-- **Week04**: 미션 컴퓨터 구현 및 센서 데이터 주기적 출력
-
-
-## 2. 목표
-
-### Week03 - DummySensor 
-### ✅ 필수 과제
-
-- `DummySensor` 클래스 생성
-- `env_values` 사전 객체 구성
-- 6개 환경 항목 정의 및 초기화
-- `set_env()` 메서드 구현 (랜덤 값 생성)
-- `get_env()` 메서드 구현 (환경 데이터 반환)
-- `ds` 인스턴스 생성 후 `set_env()`, `get_env()` 호출 확인
-
-### ⭐ 보너스 과제
-
-- 현재 날짜 및 시간 포함
-- 환경 데이터를 CSV 파일(`env_log.csv`)로 기록
-- 파일 존재 여부 및 빈 파일 처리 로직 구현
-
-
-### Week04 - MissionComputer 
-
-### ✅ 필수 과제
-
-- `MissionComputer` 클래스 생성
-- `env_values` 사전 객체 구성 (DummySensor와 동일 구조)
-- `DummySensor` 인스턴스(`ds`)를 외부에서 주입받아 사용
-- `get_sensor_data()` 메서드 구현
-- 센서 데이터를 받아 `env_values`에 저장
-- 환경 데이터를 JSON 형태로 출력
-- 5초 간격으로 반복 실행
-- `RunComputer` 인스턴스 생성 및 실행 흐름 구성
-
-### ⭐ 보너스 과제
-
-- 특정 입력(`q`)을 통해 반복 실행 종료 기능 구현
-- 일정 시간(5분) 동안의 환경 데이터 평균값 계산 및 출력
-- 측정 데이터 누적을 위한 `history` 구조 설계 및 활용
+문제 7에서 만든 `MissionComputer`와 `DummySensor` 구조를 기반으로,  
+미션 컴퓨터의 시스템 정보, 실시간 부하, 화성 기지 환경 데이터를 지속적으로 출력합니다.
 
 ---
 
-## 3. 프로젝트 구조
+## 📁 문제 파일 위치
 
+```text
+ia-codyssey/
+├── required/
+│   └── stage1/
+│       └── problem8/
+│           ├── dummy_sensor.py
+│           ├── mission_computer.py
+│           ├── mars_mission_computer.py
+│           ├── setting.txt
+│           ├── computer_info.txt
+│           └── env_log.csv
 ```
-week03/
-├── dummy_sensor.py
-├── mission_computer.py
-├── main.py
-├── env_log.csv
-└── README.md
-```
 
-## 4. 구현 내용
+## 📌 포함 문제
 
-### 4.1 DummySensor 클래스 구현
+### 문제 8 — 불안정한 미션 컴퓨터
 
-더미 센서는 실제 센서 대신 랜덤 환경 데이터를 생성하는 역할을 한다.
+미션 컴퓨터의 시스템 정보를 확인하는 기능을 구현합니다.
 
-`env_values`라는 사전 객체를 가지고 있으며, 아래 6개 항목을 저장한다.
+- 운영체계
+- 운영체계 버전
+- CPU 타입
+- CPU 코어 수
+- 메모리 크기
+- CPU 실시간 사용량
+- 메모리 실시간 사용량
+
+시스템 정보와 부하 정보는 JSON 형식으로 출력됩니다.
+
+---
+
+### 문제 9 — 미션 컴퓨터 모니터링
+
+문제 8에서 만든 시스템 정보 조회 기능을 20초마다 반복 출력하고,
+
+센서 데이터 출력 기능과 함께 멀티스레드 및 멀티프로세스로 실행합니다.
+
+---
+
+## 🧩 파일 설명
+
+| 파일 | 설명 |
+| --- | --- |
+| `dummy_sensor.py` | 화성 기지 환경 데이터를 랜덤으로 생성하는 더미 센서 클래스 |
+| `mission_computer.py` | `MissionComputer` 클래스와 시스템 정보/부하/센서 데이터 출력 로직 |
+| `mars_mission_computer.py` | 프로그램 실행 진입점 |
+| `setting.txt` | 출력할 시스템 정보 및 부하 정보 항목 설정 파일 |
+| `computer_info.txt` | 시스템 정보 출력 결과 저장 파일 |
+| `env_log.csv` | 센서 환경 데이터 로그 파일 |
+
+---
+
+## ⚙️ 주요 기능
+
+### 1. 시스템 정보 출력
+
+`get_mission_computer_info()` 메서드는 다음 정보를 가져와 JSON 형식으로 출력합니다.
+
+- `os`
+- `os_version`
+- `cpu_type`
+- `cpu_cores`
+- `memory_total`
+
+출력 결과는 `computer_info.txt`에도 저장됩니다.
+
+---
+
+### 2. 시스템 부하 출력
+
+`get_mission_computer_load()` 메서드는 다음 정보를 가져와 JSON 형식으로 출력합니다.
+
+- `cpu_usage_percent`
+- `memory_usage_percent`
+
+---
+
+### 3. 센서 데이터 출력
+
+`get_sensor_data()` 메서드는 `DummySensor`에서 환경 데이터를 가져와 `env_values`에 저장하고 JSON 형식으로 출력합니다.
+
+출력되는 환경 정보는 다음과 같습니다.
 
 - `mars_base_internal_temperature`
 - `mars_base_external_temperature`
@@ -82,136 +99,153 @@ week03/
 - `mars_base_internal_co2`
 - `mars_base_internal_oxygen`
 
-초기값은 모두 `0.0`으로 설정하였다.
+---
+
+### 4. 20초 반복 출력
+
+문제 9 조건에 따라 아래 두 메서드는 20초마다 반복 출력됩니다.
+
+- `get_mission_computer_info()`
+- `get_mission_computer_load()`
+
+센서 데이터는 5초마다 반복 출력됩니다.
 
 ---
 
-### 4.2 set_env() 구현
+### 5. 멀티스레드 실행
 
-`set_env()` 메서드는 각 환경 항목에 대해 문제에서 제시한 범위 내 랜덤 값을 생성하여 `env_values`에 저장한다.
+기본 실행 모드는 멀티스레드입니다.
 
-### 범위
+하나의 `MissionComputer` 인스턴스를 생성한 뒤, 아래 메서드를 각각 별도 스레드로 실행합니다.
 
-- 내부 온도: `18 ~ 30`
-- 외부 온도: `0 ~ 21`
-- 내부 습도: `50 ~ 60`
-- 외부 광량: `500 ~ 715`
-- 내부 CO2: `0.02 ~ 0.1`
-- 내부 산소: `4 ~ 7`
+- `get_mission_computer_info()`
+- `get_mission_computer_load()`
+- `get_sensor_data()`
 
-`random.uniform()`과 `round()`를 사용하여 소수점 자릿수까지 제어하였다.
-
----
-
-### 4.3 get_env() 구현
-
-`get_env()`는 현재 센서 데이터를 반환하는 메서드이다.
-
-이 과정에서 다음 기능을 함께 수행한다.
-
-- 현재 시각 생성
-- 환경 데이터 출력
-- 로그 파일 기록
-- `env_values` 반환
-
-즉, 단순히 값을 꺼내는 것이 아니라 **현재 환경 상태를 확인하고 기록하는 역할**까지 포함한다.
-
----
-
-### 4.4 로그 파일 저장
-
-보너스 과제를 위해 `write_log()`를 구현하였다.
-
-기능은 다음과 같다.
-
-- 로그 파일이 없으면 새로 생성
-- 파일이 비어 있으면 헤더 작성
-- 이후 데이터는 계속 이어서 저장
-- 파일 쓰기 권한 문제 또는 저장 오류 시 예외 처리
-
-저장 형식은 CSV 형태이며, 한 줄마다 한 번의 측정 결과가 기록된다.
-
----
-
-### 4.5 MissionComputer 클래스 구현
-
-`MissionComputer`는 센서 데이터를 받아 화면에 출력하고 평균을 계산하는 역할을 한다.
-
-생성자에서 다음 속성을 초기화한다.
-
-- `self.sensor`: 외부에서 전달받은 센서 객체
-- `self.env_values`: 현재 환경 데이터 저장용 사전
-- `self.history`: 평균 계산을 위한 누적 기록용 사전
-
----
-
-### 4.6 dict_to_json() 구현
-
-환경 데이터를 JSON 형태로 보기 좋게 출력하기 위해 `dict_to_json()` 함수를 구현하였다.
-
-이번 과제에서는 별도의 `json` 라이브러리를 사용하지 않고,
-
-문자열을 직접 조합하여 JSON 형식처럼 출력되도록 만들었다.
-
-예시 출력:
+실행:
 
 ```
-{
-    "mars_base_internal_temperature":23.4,
-    "mars_base_external_temperature":10.2,
-    "mars_base_internal_humidity":55.1
-}
+python mars_mission_computer.py
+```
+
+또는
+
+```
+python mars_mission_computer.py thread
 ```
 
 ---
 
-### 4.7 get_sensor_data() 구현
+### 6. 멀티프로세스 실행
 
-`MissionComputer`의 핵심 메서드이다.
+멀티프로세스 모드에서는 `MissionComputer` 인스턴스를 각각 생성합니다.
 
-이 메서드는 다음 순서로 동작한다.
+- `runComputer1` → 시스템 정보 출력
+- `runComputer2` → 시스템 부하 출력
+- `runComputer3` → 센서 데이터 출력
 
-1. 센서 객체에서 랜덤 데이터 생성
-2. 센서 데이터 반환
-3. `MissionComputer.env_values`에 값 복사
-4. `history`에 누적 저장
-5. 현재 시각과 함께 JSON 형태로 출력
-6. 5초 대기
-7. 반복 수행
+실행:
 
-즉, 미션 컴퓨터가 **5초마다 화성 기지 환경 상태를 확인하는 구조**를 구현하였다.
+```
+python mars_mission_computer.py process
+```
 
 ---
 
-### 4.8 5분 평균값 계산
+## 🛑 종료 방법
 
-보너스 과제로 5분마다 평균값을 출력하도록 구현하였다.
-
-- 5초마다 1회 측정
-- 60회 측정 시 총 300초 = 5분
-- `history`에 누적된 값의 평균 계산
-- 평균 출력 후 기록 초기화
-
-이를 통해 단순 현재값뿐 아니라 일정 시간 동안의 평균 환경값도 확인할 수 있도록 만들었다.
-
-
-
-
-## 6. 실행 방법
-
-프로젝트 루트 또는 해당 폴더에서 아래 명령어를 실행한다.
+프로그램 실행 중 아래 값을 입력하면 반복 출력이 중단됩니다.
 
 ```
-python main.py
+q
 ```
 
+입력 후 Enter를 누르면 모든 모니터링 작업이 종료됩니다.
 
-## 9. 배운 점
+---
 
-- 클래스를 역할별로 분리하면 재사용성이 높아진다.
-- 하나의 파일에 모든 코드를 넣기보다 `dummy_sensor.py`, `mission_computer.py`, `main.py`처럼 나누면 관리가 훨씬 쉬워진다.
-- `self.sensor`처럼 객체를 다른 객체에 주입하면 코드 확장성이 좋아진다.
-- 딕셔너리와 리스트를 함께 사용하면 현재값과 누적값을 효율적으로 관리할 수 있다.
-- 로그 파일을 직접 생성하고 관리하면서 파일 입출력 흐름을 더 잘 이해할 수 있었다.
-- 반복 출력, 평균 계산, 예외 처리 등 작은 기능들이 합쳐져 하나의 시스템처럼 동작한다는 점을 배웠다.
+## 📝 setting.txt
 
+`setting.txt` 파일을 수정하면 출력할 시스템 정보 항목을 설정할 수 있습니다.
+
+기본 설정 예시는 다음과 같습니다.
+
+```
+os
+os_version
+cpu_type
+cpu_cores
+memory_total
+cpu_usage_percent
+memory_usage_percent
+```
+
+---
+
+## 📊 5분 평균값 출력
+
+센서 데이터는 5초마다 수집됩니다.
+
+60회 수집이 완료되면 다음 계산에 따라 5분 평균값을 출력합니다.
+
+```
+5초 × 60회 = 300초 = 5분
+```
+
+평균 출력 후 누적된 센서 기록은 초기화됩니다.
+
+---
+
+## 🧪 실행 예시
+
+### 멀티스레드 모드
+
+```
+python mars_mission_computer.py
+```
+
+### 멀티프로세스 모드
+
+```
+python mars_mission_computer.py process
+```
+
+---
+
+## 📚 사용 라이브러리
+
+| 라이브러리 | 구분 | 사용 목적 |
+| --- | --- | --- |
+| `time` | Python 기본 제공 | 반복 대기 시간 처리 |
+| `datetime` | Python 기본 제공 | 출력 시각 기록 |
+| `platform` | Python 기본 제공 | 운영체제 및 CPU 정보 조회 |
+| `threading` | Python 기본 제공 | 멀티스레드 실행 |
+| `multiprocessing` | Python 기본 제공 | 멀티프로세스 실행 |
+| `sys` | Python 기본 제공 | 실행 모드 인자 처리 |
+| `psutil` | 외부 라이브러리 | CPU/메모리 정보 조회 |
+
+> 문제 8 조건에서 시스템 정보를 가져오는 부분은 별도 라이브러리 사용이 허용되므로 `psutil`을 사용했습니다.
+> 
+
+---
+
+## ✅ 구현 조건 체크
+
+### 문제 8
+
+- `MissionComputer` 클래스에 `get_mission_computer_info()` 추가
+- 운영체계, 운영체계 버전, CPU 타입, CPU 코어 수, 메모리 크기 출력
+- `get_mission_computer_load()` 추가
+- CPU 실시간 사용량, 메모리 실시간 사용량 출력
+- JSON 형식 출력
+- 시스템 정보 조회 부분 예외 처리
+- `setting.txt`를 통한 출력 항목 설정
+
+### 문제 9
+
+- 시스템 정보와 부하 정보를 20초마다 반복 출력
+- `runComputer` 인스턴스 생성
+- `get_mission_computer_info()`, `get_mission_computer_load()`, `get_sensor_data()` 멀티스레드 실행
+- `runComputer1`, `runComputer2`, `runComputer3` 인스턴스 생성
+- 각 인스턴스를 멀티프로세스로 실행
+- `q` 입력 시 반복 출력 중단
