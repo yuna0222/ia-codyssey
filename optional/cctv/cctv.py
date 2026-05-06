@@ -14,7 +14,7 @@ class MasImageHelper:
     """CCTV 이미지 목록 관리 및 ZIP 압축 해제를 담당하는 클래스."""
 
     EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
-    DEFAULT_FOLDER = 'cctv'
+    DEFAULT_FOLDER = 'CCTV'
     DEFAULT_ZIP = 'cctv.zip'
 
     def __init__(self, folder=DEFAULT_FOLDER, zip_path=DEFAULT_ZIP):
