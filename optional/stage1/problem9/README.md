@@ -1,12 +1,10 @@
 ## 📁 문제 파일 위치
 
-해당 문제의 해결 파일은 아래 경로에 있습니다.
-
+문제 해결 코드는 아래 경로에서 확인할 수 있습니다.
 ```
 ia-codyssey/
-├── required/                     
-│   └── stage1
-│         └── problem8
-
+├── required/
+│   └── stage1/
+│       └── problem8/
 ```
 
