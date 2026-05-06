@@ -95,10 +95,17 @@ def check_zip_file(zip_path):
 def make_priority_candidates():
     candidates = []
 
+    # 1단계: 스토리 기반 단어
     for word in PRIORITY_WORDS:
         if len(word) == PASSWORD_LENGTH:
             candidates.append(word)
 
+    # 2단계: 숫자 6자리 (000000 ~ 999999)
+    for number in range(1000000):
+        candidates.append(str(number).zfill(6))
+
+    # 3단계: 영단어 + 숫자 패턴
+    for word in PRIORITY_WORDS:
         if len(word) < PASSWORD_LENGTH:
             remain = PASSWORD_LENGTH - len(word)
 
@@ -109,9 +116,6 @@ def make_priority_candidates():
             for number in range(10 ** remain):
                 prefix = str(number).zfill(remain)
                 candidates.append(prefix + word)
-
-    for number in range(1000000):
-        candidates.append(str(number).zfill(6))
 
     return candidates
 
