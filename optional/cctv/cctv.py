@@ -10,7 +10,7 @@ from tkinter import messagebox
 from PIL import Image, ImageTk
 
 
-class MarsImageHelper:
+class MasImageHelper:
     """CCTV 이미지 목록 관리 및 ZIP 압축 해제를 담당하는 클래스."""
 
     EXTENSIONS = ('.jpg', '.jpeg', '.png', '.bmp', '.gif')
@@ -157,9 +157,9 @@ class CCTVViewer:
 
 
 def main():
-    """MarsImageHelper와 CCTVViewer를 초기화하고 이벤트 루프를 시작한다."""
+    """MasImageHelper와 CCTVViewer를 초기화하고 이벤트 루프를 시작한다."""
     try:
-        helper = MarsImageHelper()  # ZIP 해제 + 이미지 목록 로드
+        helper = MasImageHelper()  # ZIP 해제 + 이미지 목록 로드
     except (FileNotFoundError, ValueError) as e:
         # ZIP 파일 또는 이미지가 없을 때 GUI 에러 창으로 안내 후 종료
         root = tk.Tk()
