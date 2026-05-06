@@ -4,8 +4,9 @@ from mission_computer import MissionComputer
 
 def main():
     ds = DummySensor()
-    run_computer = MissionComputer(ds)
-    run_computer.get_sensor_data()
+
+    RunComputer = MissionComputer(ds)
+    RunComputer.get_sensor_data()
 
 
 if __name__ == '__main__':
