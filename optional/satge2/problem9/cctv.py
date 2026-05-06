@@ -20,8 +20,7 @@ class MasImageHelper:
     def __init__(self, folder=DEFAULT_FOLDER, zip_path=DEFAULT_ZIP):
         """폴더가 없으면 ZIP을 해제한 뒤 이미지 목록을 로드한다."""
         if not os.path.exists(folder):
-            self._extract(zip_path)  # ZIP 없으면 FileNotFoundError 발생
-        # ZIP 해제 후에도 폴더가 없으면 ZIP 내부 구조 문제
+            self._extract(zip_path)
         if not os.path.exists(folder):
             raise FileNotFoundError(
                 f'ZIP 해제 후에도 {folder} 폴더를 찾을 수 없습니다. '
@@ -30,10 +29,10 @@ class MasImageHelper:
         self.files = sorted(
             os.path.join(folder, f)
             for f in os.listdir(folder)
-            if f.lower().endswith(self.EXTENSIONS)
+            if f.lower().endswith(self.EXTENSIONS)  # 이미지 형식 아닌 건 무시
         )
         if not self.files:
-            raise ValueError(f'이미지 파일 없음: {folder}')
+            raise ValueError(f'이미지 파일이 없습니다: {folder}')
         self.index = 0
 
     # ── 내부 유틸 ──────────────────────────────────────────────
@@ -46,7 +45,6 @@ class MasImageHelper:
             )
         with zipfile.ZipFile(zip_path, 'r') as z:
             names = z.namelist()
-            print(f'ZIP 내부 항목: {names}')
             # 폴더 구조 없이 파일만 있으면 DEFAULT_FOLDER 안에 직접 해제
             has_folder = any('/' in n for n in names)
             target = '.' if has_folder else self.DEFAULT_FOLDER
@@ -62,7 +60,10 @@ class MasImageHelper:
     # ── 현재 이미지 정보 ───────────────────────────────────────
     def current_image(self):
         """현재 이미지를 PIL Image로 반환한다."""
-        return Image.open(self.files[self.index])
+        try:
+            return Image.open(self.files[self.index])
+        except (OSError, SyntaxError):
+            raise OSError(f'이미지를 열 수 없습니다: {self.files[self.index]}')
 
     def status(self):
         """'파일명 (현재/전체)' 형식의 상태 문자열을 반환한다."""
@@ -79,13 +80,15 @@ class CCTVViewer:
     BG = '#1a1a2e'
     BG_CANVAS = '#16213e'
     COLOR_ACCENT = '#e94560'
-    COLOR_ACCENT_DARK = '#c73652'
     COLOR_INFO = '#a8dadc'
     COLOR_HINT = '#555577'
     # 텍스트
     TITLE = '화성 기지 CCTV 뷰어'
     TITLE_LABEL = '🔴 화성 기지 CCTV'
     HINT_LABEL = '← 이전   |   → 다음'
+    # 버튼 색상
+    BTN_BG = '#333333'
+    BTN_FG = 'white'
 
     def __init__(self, root, helper):
         """윈도우·위젯을 구성하고 첫 이미지를 표시한다."""
@@ -115,24 +118,33 @@ class CCTVViewer:
         bar = tk.Frame(root, bg=self.BG)
         bar.pack(pady=4)
 
-        # 버튼 생성 헬퍼 (step: -1=이전, +1=다음)
-        def make_btn(text, step):
-            return tk.Button(
-                bar, text=text, command=lambda: self._nav(step),
-                font=('Arial', 11, 'bold'), fg='white',
-                bg=self.COLOR_ACCENT, activebackground=self.COLOR_ACCENT_DARK,
-                relief='flat', padx=18, pady=5, cursor='hand2')
+        # Canvas 버튼 생성 헬퍼 (맥/윈도우 색상 일관성 보장)
+        def make_btn(parent, text, command, width=120):
+            """Canvas로 직접 그린 버튼."""
+            c = tk.Canvas(parent, width=width, height=42,
+                          bg=self.BG, highlightthickness=0, cursor='hand2')
+            rect = c.create_rectangle(0, 0, width, 42,
+                                      fill=self.BTN_BG, outline='')
+            label = c.create_text(width // 2, 21, text=text,
+                                  fill=self.BTN_FG,
+                                  font=('Arial', 13, 'bold'))
+            # 클릭
+            c.tag_bind(rect, '<Button-1>', lambda e: command())
+            c.tag_bind(label, '<Button-1>', lambda e: command())
+            return c
 
-        make_btn('◀ 이전', -1).grid(row=0, column=0, padx=12)
-        self.lbl = tk.Label(bar, text='', width=34,
-                            font=('Arial', 10),
+        make_btn(bar, '◀  이전', lambda: self._nav(-1)).grid(
+            row=0, column=0, padx=12)
+        self.lbl = tk.Label(bar, text='', width=28,
+                            font=('Arial', 12),
                             fg=self.COLOR_INFO, bg=self.BG)
         self.lbl.grid(row=0, column=1)
-        make_btn('다음 ▶', +1).grid(row=0, column=2, padx=12)
+        make_btn(bar, '다음  ▶', lambda: self._nav(+1)).grid(
+            row=0, column=2, padx=12)
 
         # 키보드 단축키 안내 레이블
         tk.Label(root, text=self.HINT_LABEL,
-                 font=('Arial', 8), fg=self.COLOR_HINT, bg=self.BG).pack()
+                 font=('Arial', 9), fg=self.COLOR_HINT, bg=self.BG).pack(pady=(4, 6))
 
         # 방향키 바인딩
         root.bind('<Left>', lambda e: self._nav(-1))
@@ -141,7 +153,11 @@ class CCTVViewer:
     # ── 이미지 표시 ────────────────────────────────────────────
     def _show(self):
         """현재 이미지를 캔버스 크기에 맞춰 표시하고 상태를 갱신한다."""
-        img = self.helper.current_image()
+        try:
+            img = self.helper.current_image()
+        except OSError as e:
+            self.lbl.config(text=f'오류: {e}')
+            return
         img.thumbnail((self.W, self.H), Image.LANCZOS)  # 비율 유지 리사이즈
         self._photo = ImageTk.PhotoImage(img)  # GC 방지용 참조 보관
         self.canvas.delete('all')
