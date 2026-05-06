@@ -56,16 +56,12 @@ def find_smallest_file(zip_file):
     return None
 
 
-def try_password(zip_path, target_file, password):
+def try_password(zip_file, target_file, password):
+    """이미 열린 ZipFile 객체로 암호를 검증한다."""
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
-            zip_file.read(target_file, pwd=password.encode('utf-8'))
+        zip_file.read(target_file, pwd=password.encode('utf-8'))
         return True
-    except RuntimeError:
-        return False
-    except zipfile.BadZipFile:
-        return False
-    except OSError:
+    except Exception:
         return False
 
 
@@ -127,21 +123,22 @@ def try_priority_passwords(zip_path, target_file, start_time):
     print(f'[정보] 후보 수: {len(candidates):,}')
     print('-' * 50)
 
-    for count, password in enumerate(candidates, start=1):
-        if count % PRINT_INTERVAL == 0:
-            elapsed = time.time() - start_time
-            print(
-                f'[진행] {count:,}회 | 현재: {password} | '
-                f'{make_elapsed_time(elapsed)}'
-            )
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        for count, password in enumerate(candidates, start=1):
+            if count % PRINT_INTERVAL == 0:
+                elapsed = time.time() - start_time
+                print(
+                    f'[진행] {count:,}회 | 현재: {password} | '
+                    f'{make_elapsed_time(elapsed)}'
+                )
 
-        if try_password(zip_path, target_file, password):
-            elapsed = time.time() - start_time
-            print('[성공] 우선순위 후보에서 암호 발견')
-            print(f'[암호] {password}')
-            print(f'[반복] {count:,}회')
-            print(f'[시간] {make_elapsed_time(elapsed)}')
-            return password
+            if try_password(zip_file, target_file, password):
+                elapsed = time.time() - start_time
+                print('[성공] 우선순위 후보에서 암호 발견')
+                print(f'[암호] {password}')
+                print(f'[반복] {count:,}회')
+                print(f'[시간] {make_elapsed_time(elapsed)}')
+                return password
 
     print('[1단계 종료] 우선순위 후보에서 찾지 못했습니다.')
     return None
@@ -161,17 +158,18 @@ def worker(args):
     worker_id, start, end, zip_path, target_file, found_event, result_queue = args
     local_count = 0
 
-    for number in range(start, end):
-        if found_event.is_set():
-            return
+    with zipfile.ZipFile(zip_path, 'r') as zip_file:
+        for number in range(start, end):
+            if found_event.is_set():
+                return
 
-        password = number_to_password(number)
-        local_count += 1
+            password = number_to_password(number)
+            local_count += 1
 
-        if try_password(zip_path, target_file, password):
-            result_queue.put((worker_id, password, local_count))
-            found_event.set()
-            return
+            if try_password(zip_file, target_file, password):
+                result_queue.put((worker_id, password, local_count))
+                found_event.set()
+                return
 
 
 def unlock_zip_bruteforce(zip_path, target_file, start_time):
