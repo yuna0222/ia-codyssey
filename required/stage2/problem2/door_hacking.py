@@ -1,320 +1,120 @@
 """
-door_hacking.py - emergency_storage_key.zip 암호 해독 + 압축 해제
-1단계: 의미 있는 단어 기반 우선순위 후보 시도
-2단계: 전체 브루트포스 (멀티프로세싱)
-암호 발견 후 ZIP 파일을 같은 경로에 해제한다.
+caesar_cipher.py - 카이사르 암호 해독기
+password.txt 를 읽어서 26가지 자리수로 해독 결과를 출력하고,
+눈으로 확인 후 번호를 입력하면 result.txt 로 저장한다.
 """
 
-import itertools
-import multiprocessing
-import os
-import string
-import time
-import zipfile
-
-
-ZIP_FILE = 'emergency_storage_key.zip'
-PASSWORD_FILE = 'password.txt'
-
-PASSWORD_LENGTH = 6
-CHARACTERS = string.digits + string.ascii_lowercase
-PRINT_INTERVAL = 100000
-
-
-PRIORITY_WORDS = [
-    'coffee',
-    'oxygen',
-    'storage',
-    'emergency',
-    'mars',
-    'base',
-    'door',
-    'key',
-    'food',
-    'water',
-    'rescue',
-    'space',
-    'human',
-    'life',
+# 텍스트 사전 — 이 단어가 해독 결과에 포함되면 멈출지 여부를 묻는다 (보너스 과제)
+DICTIONARY = [
+    'the', 'is', 'are', 'was', 'have', 'has',
+    'password', 'open', 'door', 'storage', 'emergency',
+    'mars', 'base', 'key', 'access', 'code',
 ]
 
-
-def make_elapsed_time(seconds):
-    minutes = int(seconds // 60)
-    secs = int(seconds % 60)
-    return f'{minutes}분 {secs}초'
+PASSWORD_FILE = 'decode/password.txt'
+RESULT_FILE = 'result.txt'
 
 
-def find_smallest_file(zip_file):
-    smallest_file = None
-
-    for file_info in zip_file.infolist():
-        if file_info.filename.endswith('/') or file_info.file_size == 0:
-            continue
-
-        if smallest_file is None:
-            smallest_file = file_info
-        elif file_info.compress_size < smallest_file.compress_size:
-            smallest_file = file_info
-
-    if smallest_file:
-        return smallest_file.filename
-
-    return None
-
-
-def try_password(zip_file, target_file, password):
-    """이미 열린 ZipFile 객체로 암호를 검증한다."""
+def read_password(filepath=PASSWORD_FILE):
+    """password.txt 파일을 읽어서 반환한다."""
     try:
-        zip_file.read(target_file, pwd=password.encode('utf-8'))
-        return True
-    except Exception:
-        return False
-
-
-def save_password(password):
-    try:
-        with open(PASSWORD_FILE, 'w', encoding='utf-8') as file:
-            file.write(password)
-        print(f'[저장] {PASSWORD_FILE} 저장 완료')
-    except OSError as error:
-        print('[오류] password.txt 저장 실패')
-        print(error)
-
-
-def extract_zip(zip_path, password):
-    """암호를 사용해 ZIP 파일을 decode 폴더에 해제한다."""
-    zip_dir = os.path.dirname(os.path.abspath(zip_path))
-    extract_path = os.path.join(zip_dir, 'decode')
-
-    try:
-        os.makedirs(extract_path, exist_ok=True)
-
-        with zipfile.ZipFile(zip_path, 'r') as zf:
-            zf.extractall(path=extract_path, pwd=password.encode('utf-8'))
-
-        print(f'[압축 해제] {extract_path} 에 저장되었습니다.')
-
-    except OSError as error:
-        print(f'[오류] 압축 해제 실패: {error}')
-
-
-def check_zip_file(zip_path):
-    if not os.path.exists(zip_path):
-        print(f'[오류] 파일을 찾을 수 없습니다: {zip_path}')
+        with open(filepath, 'r', encoding='utf-8') as f:
+            return f.read().strip()
+    except FileNotFoundError:
+        print(f'[오류] 파일을 찾을 수 없습니다: {filepath}')
+        return None
+    except OSError as e:
+        print(f'[오류] 파일 읽기 실패: {e}')
         return None
 
+
+def save_result(text, shift, filepath=RESULT_FILE):
+    """해독된 결과를 result.txt 에 저장한다."""
     try:
-        with zipfile.ZipFile(zip_path, 'r') as zip_file:
-            return find_smallest_file(zip_file)
-    except zipfile.BadZipFile:
-        print('[오류] 정상적인 ZIP 파일이 아닙니다.')
-    except OSError as error:
-        print('[오류] ZIP 파일 처리 중 문제가 발생했습니다.')
-        print(error)
-
-    return None
+        with open(filepath, 'w', encoding='utf-8') as f:
+            f.write(f'[자리수] {shift}\n')
+            f.write(f'[결과] {text}\n')
+        print(f'[저장] {filepath} 저장 완료')
+    except OSError as e:
+        print(f'[오류] 파일 저장 실패: {e}')
 
 
-def make_priority_candidates():
-    candidates = []
+def decode_shift(text, shift):
+    """
+    주어진 문자열을 shift 자리수만큼 뒤로 밀어서 해독한다.
+    알파벳만 변환하고 나머지 문자는 그대로 유지한다.
+    """
+    result = ''
 
-    # 1단계: 스토리 기반 단어
-    for word in PRIORITY_WORDS:
-        if len(word) == PASSWORD_LENGTH:
-            candidates.append(word)
-
-    # 2단계: 숫자 6자리 (000000 ~ 999999)
-    for number in range(1000000):
-        candidates.append(str(number).zfill(6))
-
-    # 3단계: 영단어 + 숫자 패턴
-    for word in PRIORITY_WORDS:
-        if len(word) < PASSWORD_LENGTH:
-            remain = PASSWORD_LENGTH - len(word)
-
-            for number in range(10 ** remain):
-                suffix = str(number).zfill(remain)
-                candidates.append(word + suffix)
-
-            for number in range(10 ** remain):
-                prefix = str(number).zfill(remain)
-                candidates.append(prefix + word)
-
-    return candidates
-
-
-def try_priority_passwords(zip_path, target_file, start_time):
-    candidates = make_priority_candidates()
-
-    print('[1단계] 우선순위 후보 검사 시작')
-    print(f'[정보] 후보 수: {len(candidates):,}')
-    print('-' * 50)
-
-    with zipfile.ZipFile(zip_path, 'r') as zip_file:
-        for count, password in enumerate(candidates, start=1):
-            if count % PRINT_INTERVAL == 0:
-                elapsed = time.time() - start_time
-                print(
-                    f'[진행] {count:,}회 | 현재: {password} | '
-                    f'진행 시간: {make_elapsed_time(elapsed)}'
-                )
-
-            if try_password(zip_file, target_file, password):
-                elapsed = time.time() - start_time
-                print('[성공] 우선순위 후보에서 암호 발견')
-                print(f'[암호] {password}')
-                print(f'[반복] {count:,}회')
-                print(f'[시간] {make_elapsed_time(elapsed)}')
-                return password
-
-    print('[1단계 종료] 우선순위 후보에서 찾지 못했습니다.')
-    return None
-
-
-def number_to_password(number):
-    indexes = [0] * PASSWORD_LENGTH
-
-    for position in range(PASSWORD_LENGTH - 1, -1, -1):
-        indexes[position] = number % len(CHARACTERS)
-        number //= len(CHARACTERS)
-
-    return ''.join(CHARACTERS[index] for index in indexes)
-
-
-def worker(args):
-    worker_id, start, end, zip_path, target_file, found_event, result_queue = args
-    local_count = 0
-
-    with zipfile.ZipFile(zip_path, 'r') as zip_file:
-        for number in range(start, end):
-            if found_event.is_set():
-                return
-
-            password = number_to_password(number)
-            local_count += 1
-
-            if try_password(zip_file, target_file, password):
-                result_queue.put((worker_id, password, local_count))
-                found_event.set()
-                return
-
-
-def unlock_zip_bruteforce(zip_path, target_file, start_time):
-    print('\n[2단계] 전체 브루트포스 시작')
-    print('시간이 오래 걸릴 수 있습니다.')
-    print('-' * 50)
-
-    total = len(CHARACTERS) ** PASSWORD_LENGTH
-    cpu_count = max(1, multiprocessing.cpu_count() - 1)
-    chunk_size = total // cpu_count
-
-    found_event = multiprocessing.Event()
-    result_queue = multiprocessing.Queue()
-    processes = []
-
-    for worker_id in range(cpu_count):
-        start = worker_id * chunk_size
-
-        if worker_id == cpu_count - 1:
-            end = total
+    for ch in text:
+        if ch.isalpha():
+            base = 'A' if ch.isupper() else 'a'
+            result += chr((ord(ch) - ord(base) - shift) % 26 + ord(base))
         else:
-            end = start + chunk_size
+            result += ch
 
-        process = multiprocessing.Process(
-            target=worker,
-            args=(
-                (
-                    worker_id + 1,
-                    start,
-                    end,
-                    zip_path,
-                    target_file,
-                    found_event,
-                    result_queue,
-                ),
-            ),
-        )
-        processes.append(process)
-        process.start()
+    return result
 
-    try:
-        while True:
-            if not result_queue.empty():
-                worker_id, password, local_count = result_queue.get()
-                found_event.set()
 
-                for process in processes:
-                    if process.is_alive():
-                        process.terminate()
+def contains_dictionary_word(text):
+    """해독 결과에 사전 단어가 포함되어 있으면 해당 단어를 반환한다. (보너스 과제)"""
+    lower = text.lower()
 
-                for process in processes:
-                    process.join()
+    for word in DICTIONARY:
+        if word in lower:
+            return word
 
-                elapsed = time.time() - start_time
-                print('[성공] 전체 브루트포스에서 암호 발견')
-                print(f'[작업 번호] {worker_id}')
-                print(f'[작업 반복 회수] {local_count:,}')
-                print(f'[암호] {password}')
-                print(f'[시간] {make_elapsed_time(elapsed)}')
-                return password
-
-            alive = any(process.is_alive() for process in processes)
-
-            if not alive:
-                break
-
-            elapsed = time.time() - start_time
-            print(f'\r[진행 중] 경과 시간: {make_elapsed_time(elapsed)}', end='')
-            time.sleep(1)
-
-    except KeyboardInterrupt:
-        print('\n[중단] 사용자가 작업을 중단했습니다.')
-        found_event.set()
-
-    for process in processes:
-        if process.is_alive():
-            process.terminate()
-
-    for process in processes:
-        process.join()
-
-    print('\n[실패] 암호를 찾지 못했습니다.')
     return None
 
 
-def unlock_zip(zip_path=ZIP_FILE):
-    start_time = time.time()
-    start_text = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
+def caesar_cipher_decode(target_text):
+    """
+    카이사르 암호를 해독한다.
+    알파벳 수(26)만큼 자리수를 바꿔가며 해독 결과를 출력한다.
+    사전 단어가 발견되면 멈출지 여부를 사용자에게 묻는다. (보너스 과제)
 
+    Args:
+        target_text (str): 해독할 암호 문자열
+    """
     print('=' * 50)
-    print('Emergency Storage 암호 해독기')
+    print('  카이사르 암호 해독기')
     print('=' * 50)
-    print(f'[시작 시간] {start_text}')
-    print(f'[대상 파일] {zip_path}')
-    print(f'[암호 조건] 숫자 + 소문자 알파벳 6자리')
+    print(f'[원문] {target_text}')
     print('-' * 50)
 
-    target_file = check_zip_file(zip_path)
+    for shift in range(1, 26):
+        decoded = decode_shift(target_text, shift)
+        print(f'[자리수 {shift:2d}] {decoded}')
 
-    if target_file is None:
-        return None
+        # 사전 단어 발견 시 멈출지 여부를 묻는다 (보너스 과제)
+        found_word = contains_dictionary_word(decoded)
+        if found_word:
+            print(f'\n[사전 감지] 자리수 {shift} — "{found_word}" 발견!')
+            stop = input('반복을 멈추고 이 결과를 저장할까요? (y/n): ').strip().lower()
+            if stop == 'y':
+                save_result(decoded, shift)
+                return
 
-    print(f'[검사 대상 파일] {target_file}')
+    print('-' * 50)
 
-    password = try_priority_passwords(zip_path, target_file, start_time)
+    # 눈으로 확인 후 번호 입력
+    try:
+        num = int(input('몇 번째 자리수가 정답인가요? (1~25): ').strip())
+        if 1 <= num <= 25:
+            decoded = decode_shift(target_text, num)
+            print(f'[선택] 자리수 {num}: {decoded}')
+            save_result(decoded, num)
+        else:
+            print('[오류] 1~25 사이의 숫자를 입력해 주세요.')
+    except ValueError:
+        print('[오류] 숫자를 입력해 주세요.')
 
-    if password is None:
-        password = unlock_zip_bruteforce(zip_path, target_file, start_time)
 
-    if password:
-        save_password(password)
-        extract_zip(zip_path, password)
-        return password
-
-    return None
+def main():
+    text = read_password()
+    if text:
+        caesar_cipher_decode(text)
 
 
 if __name__ == '__main__':
-    multiprocessing.freeze_support()
-    unlock_zip()
+    main()
