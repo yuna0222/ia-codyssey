@@ -1,3 +1,10 @@
+"""
+door_hacking.py - emergency_storage_key.zip 암호 해독 + 압축 해제
+1단계: 의미 있는 단어 기반 우선순위 후보 시도
+2단계: 전체 브루트포스 (멀티프로세싱)
+암호 발견 후 ZIP 파일을 같은 경로에 해제한다.
+"""
+
 import itertools
 import multiprocessing
 import os
@@ -37,7 +44,7 @@ def make_elapsed_time(seconds):
     secs = int(seconds % 60)
     return f'{minutes}분 {secs}초'
 
-# 작은 파일
+
 def find_smallest_file(zip_file):
     smallest_file = None
 
@@ -74,7 +81,24 @@ def save_password(password):
         print('[오류] password.txt 저장 실패')
         print(error)
 
-# 1. 파일 존재확인
+
+def extract_zip(zip_path, password):
+    """암호를 사용해 ZIP 파일을 decode 폴더에 해제한다."""
+    zip_dir = os.path.dirname(os.path.abspath(zip_path))
+    extract_path = os.path.join(zip_dir, 'decode')
+
+    try:
+        os.makedirs(extract_path, exist_ok=True)
+
+        with zipfile.ZipFile(zip_path, 'r') as zf:
+            zf.extractall(path=extract_path, pwd=password.encode('utf-8'))
+
+        print(f'[압축 해제] {extract_path} 에 저장되었습니다.')
+
+    except OSError as error:
+        print(f'[오류] 압축 해제 실패: {error}')
+
+
 def check_zip_file(zip_path):
     if not os.path.exists(zip_path):
         print(f'[오류] 파일을 찾을 수 없습니다: {zip_path}')
@@ -92,8 +116,6 @@ def check_zip_file(zip_path):
     return None
 
 
-
-#
 def make_priority_candidates():
     candidates = []
 
@@ -121,7 +143,7 @@ def make_priority_candidates():
 
     return candidates
 
-#  우선순위 후보를 순서대로 시도.
+
 def try_priority_passwords(zip_path, target_file, start_time):
     candidates = make_priority_candidates()
 
@@ -135,7 +157,7 @@ def try_priority_passwords(zip_path, target_file, start_time):
                 elapsed = time.time() - start_time
                 print(
                     f'[진행] {count:,}회 | 현재: {password} | '
-                    f'{make_elapsed_time(elapsed)}'
+                    f'진행 시간: {make_elapsed_time(elapsed)}'
                 )
 
             if try_password(zip_file, target_file, password):
@@ -160,7 +182,6 @@ def number_to_password(number):
     return ''.join(CHARACTERS[index] for index in indexes)
 
 
-#  프로세스가 담당 구간 탐색. ZIP 한 번만 열고 try_password
 def worker(args):
     worker_id, start, end, zip_path, target_file, found_event, result_queue = args
     local_count = 0
@@ -179,7 +200,6 @@ def worker(args):
                 return
 
 
-# 전체 22억 가지를 CPU 코어 수만큼 나눠서 병렬 탐색.
 def unlock_zip_bruteforce(zip_path, target_file, start_time):
     print('\n[2단계] 전체 브루트포스 시작')
     print('시간이 오래 걸릴 수 있습니다.')
@@ -263,7 +283,6 @@ def unlock_zip_bruteforce(zip_path, target_file, start_time):
     return None
 
 
-
 def unlock_zip(zip_path=ZIP_FILE):
     start_time = time.time()
     start_text = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(start_time))
@@ -289,8 +308,8 @@ def unlock_zip(zip_path=ZIP_FILE):
         password = unlock_zip_bruteforce(zip_path, target_file, start_time)
 
     if password:
-        # 찾으면 저장
         save_password(password)
+        extract_zip(zip_path, password)
         return password
 
     return None
