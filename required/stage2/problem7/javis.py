@@ -19,6 +19,7 @@ def record_audio(file_path):
     try:
         import sounddevice as sd
         import scipy.io.wavfile as wav
+        import numpy as np
     except ImportError:
         print('필요한 라이브러리가 없습니다. 아래 명령어로 설치해주세요:')
         print('  pip install sounddevice scipy numpy')
@@ -39,14 +40,13 @@ def record_audio(file_path):
         recording[0] = False
 
     if frames:
-        import numpy as np
         audio_data = np.concatenate(frames, axis=0)
         wav.write(file_path, sample_rate, audio_data)
         print(f'녹음 완료: {file_path}')
         return True
-    else:
-        print('녹음된 데이터가 없습니다.')
-        return False
+
+    print('녹음된 데이터가 없습니다.')
+    return False
 
 
 def play_audio(file_path):
