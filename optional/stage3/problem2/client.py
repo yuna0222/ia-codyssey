@@ -40,7 +40,7 @@ def connect_to_server(host):
 
 def run_client():
     """채팅 클라이언트를 실행한다."""
-    host = socket.gethostname()
+    host = '127.0.0.1'
     client_socket = connect_to_server(host)
 
     nickname = input('닉네임을 입력하세요: ').strip()

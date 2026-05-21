@@ -25,7 +25,7 @@ def broadcast(message, sender_socket=None):
 def send_to_client(client_socket, message):
     """특정 클라이언트에게 메시지를 전송한다."""
     try:
-        client_socket.send(message.encode('utf-8'))
+        client_socket.send((message + '\n').encode('utf-8'))
     except OSError:
         remove_client(client_socket)
 
@@ -62,7 +62,7 @@ def handle_client(client_socket):
             if message == '/종료':
                 exit_msg = f'{nickname}님이 퇴장하셨습니다.'
                 print(exit_msg)
-                broadcast(exit_msg)
+                broadcast(exit_msg, sender_socket=client_socket)
                 break
 
             # 귓속말: /귓속말 대상닉네임 메시지 (보너스)
@@ -125,23 +125,27 @@ def run_server():
     """채팅 서버를 실행한다."""
     server_socket = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     server_socket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-    print('소캣 생성완료')
+    print('소켓 생성완료')
 
-    host = socket.gethostname()
-    print(host)
+    host = '0.0.0.0'
 
     port = bind_socket(server_socket, host)
     server_socket.listen(3)
     print(f'채팅 서버가 {host}:{port} 에서 대기 중입니다...')
 
-    while True:
-        client_socket, client_address = server_socket.accept()
-        thread = threading.Thread(
-            target=handle_client,
-            args=(client_socket,),
-            daemon=True
-        )
-        thread.start()
+    try:
+        while True:
+            client_socket, client_address = server_socket.accept()
+            thread = threading.Thread(
+                target=handle_client,
+                args=(client_socket,),
+                daemon=True
+            )
+            thread.start()
+    except KeyboardInterrupt:
+        print('\n서버를 종료합니다.')
+    finally:
+        server_socket.close()
 
 
 if __name__ == '__main__':
