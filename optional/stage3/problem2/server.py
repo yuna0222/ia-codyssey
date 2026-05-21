@@ -49,8 +49,8 @@ def handle_client(client_socket):
 
         enter_msg = f'{nickname}님이 입장하셨습니다.'
         print(enter_msg)
-        broadcast(enter_msg)
         send_to_client(client_socket, enter_msg)
+        broadcast(enter_msg, sender_socket=client_socket)
 
         while True:
             data = client_socket.recv(1024)
