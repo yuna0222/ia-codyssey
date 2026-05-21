@@ -13,9 +13,11 @@ def receive_messages(client_socket):
         try:
             data = client_socket.recv(1024)
             if not data:
+                print('서버와의 연결이 끊어졌습니다.')
                 break
             print(data.decode('utf-8'))
         except OSError:
+            print('서버와의 연결이 끊어졌습니다.')
             break
 
 
@@ -56,13 +58,19 @@ def run_client():
     print('귓속말: /귓속말 닉네임 메시지')
 
     while True:
-        message = input()
-        if not message:
-            continue
+        try:
+            message = input()
+            if not message:
+                continue
 
-        client_socket.send(message.encode('utf-8'))
+            client_socket.send(message.encode('utf-8'))
 
-        if message == '/종료':
+            if message == '/종료':
+                break
+        except (BrokenPipeError, OSError):
+            print('서버와의 연결이 끊어졌습니다.')
+            break
+        except EOFError:
             break
 
     client_socket.close()
