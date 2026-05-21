@@ -63,7 +63,7 @@ def run_client():
             if not message:
                 continue
 
-            client_socket.send(message.encode('utf-8'))
+            client_socket.send(message.encode('utf-8', errors='replace'))
 
             if message == '/종료':
                 break
