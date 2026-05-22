@@ -303,8 +303,8 @@ def insert_data(db, rows):
 # 결과 확인
 # ─────────────────────────────────────────────────────────────────
 
-def print_summary(db):
-    """저장된 데이터의 요약 정보를 출력한다."""
+def fetch_summary(db):
+    """DB에서 요약 통계를 조회하여 딕셔너리로 반환한다."""
     db.execute('SELECT COUNT(*) FROM mars_weather')
     total = db.fetchall()[0][0]
 
@@ -323,13 +323,44 @@ def print_summary(db):
     )
     storm_count = db.fetchall()[0][0]
 
+    return {
+        'total': total,
+        'date_start': str(date_range[0]),
+        'date_end': str(date_range[1]),
+        'temp_avg': float(temp_info[0]),
+        'temp_min': temp_info[1],
+        'temp_max': temp_info[2],
+        'storm_count': storm_count,
+    }
+
+
+def print_summary(summary):
+    """요약 정보를 콘솔에 출력한다."""
     print()
     print('=== 화성 날씨 데이터 요약 ===')
-    print(f'  총 데이터 수  : {total}개')
-    print(f'  기간          : {date_range[0]} ~ {date_range[1]}')
-    print(f'  평균 기온     : {float(temp_info[0]):.1f}°C')
-    print(f'  최저 / 최고   : {temp_info[1]}°C / {temp_info[2]}°C')
-    print(f'  폭풍 위험일   : {storm_count}일 (storm >= 70)')
+    print(f'  총 데이터 수  : {summary["total"]}개')
+    print(f'  기간          : {summary["date_start"]} ~ {summary["date_end"]}')
+    print(f'  평균 기온     : {summary["temp_avg"]:.1f}°C')
+    print(f'  최저 / 최고   : {summary["temp_min"]}°C / {summary["temp_max"]}°C')
+    print(f'  폭풍 위험일   : {summary["storm_count"]}일 (storm >= 70)')
+
+
+def save_summary_png(summary, file_path='mars_weather_summary.png'):
+    """
+    요약 정보를 PNG 이미지로 저장한다.
+
+    make_png 모듈을 사용하며 외부 라이브러리 없이 동작한다.
+
+    Args:
+        summary (dict): fetch_summary()가 반환한 요약 딕셔너리
+        file_path (str): 저장할 PNG 파일 경로
+    """
+    try:
+        from make_png import draw_summary_image
+    except ImportError:
+        print('[PNG] make_png.py 파일이 같은 폴더에 있어야 합니다.')
+        return
+    draw_summary_image(summary, file_path)
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -404,7 +435,9 @@ def main():
         create_table(db)
         rows = read_csv(CSV_FILE)
         insert_data(db, rows)
-        print_summary(db)
+        summary = fetch_summary(db)
+        print_summary(summary)
+        save_summary_png(summary)
     finally:
         db.close()
 
