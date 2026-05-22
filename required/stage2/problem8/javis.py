@@ -13,7 +13,6 @@ import datetime
 import subprocess
 import sys
 
-
 # ─────────────────────────────────────────────────────────────────
 # 상수
 # ─────────────────────────────────────────────────────────────────
@@ -68,10 +67,10 @@ def record_audio(file_path):
         frames.append(indata.copy())
 
     with sd.InputStream(
-        samplerate=SAMPLE_RATE,
-        channels=1,
-        dtype='float32',
-        callback=callback
+            samplerate=SAMPLE_RATE,
+            channels=1,
+            dtype='float32',
+            callback=callback
     ):
         input()
 
@@ -211,7 +210,7 @@ def fix_wav_format(file_path):
         sample_rate = struct.unpack('<I', f.read(4))[0]
         f.seek(16)
         fmt_size = struct.unpack('<I', f.read(4))[0]
-        f.seek(20 + fmt_size)          # fmt 청크 끝으로 이동
+        f.seek(20 + fmt_size)  # fmt 청크 끝으로 이동
 
         # data 청크 탐색
         while True:
@@ -324,7 +323,6 @@ def convert_one():
     wav_path = select_file()
     if wav_path:
         save_csv(wav_path, transcribe_audio(wav_path))
-
 
 
 # ─────────────────────────────────────────────────────────────────
