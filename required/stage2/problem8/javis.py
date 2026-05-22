@@ -7,54 +7,41 @@ javis.py - 음성 녹음 및 STT(Speech to Text) 기능 구현
 
 import os
 import csv
+import wave
+import struct
 import datetime
+import subprocess
+import sys
+
+
+# ─────────────────────────────────────────────────────────────────
+# 상수
+# ─────────────────────────────────────────────────────────────────
+
+RECORDS_DIR = 'records'
+TRANSCRIPTS_DIR = 'transcripts'
+SAMPLE_RATE = 44100
 
 
 # ─────────────────────────────────────────────────────────────────
 # 공통 유틸
 # ─────────────────────────────────────────────────────────────────
 
-def create_records_folder():
-    """records 폴더가 없으면 생성한다."""
-    if not os.path.exists('records'):
-        os.makedirs('records')
+def make_dir(path):
+    """폴더가 없으면 생성한다."""
+    if not os.path.exists(path):
+        os.makedirs(path)
 
 
-def create_transcripts_folder():
-    """transcripts 폴더가 없으면 생성한다."""
-    if not os.path.exists('transcripts'):
-        os.makedirs('transcripts')
+def time_str(seconds):
+    """초를 MM:SS 형식 문자열로 변환한다."""
+    return '{:02d}:{:02d}'.format(int(seconds) // 60, int(seconds) % 60)
 
 
-def get_file_name():
-    """현재 날짜와 시간을 기반으로 WAV 파일 이름을 생성한다."""
-    now = datetime.datetime.now()
-    return now.strftime('%Y%m%d-%H%M%S') + '.wav'
-
-
-def check_stt_library():
-    """
-    SpeechRecognition 라이브러리 설치 여부를 확인한다.
-
-    Returns:
-        bool: 설치되어 있으면 True, 아니면 False
-    """
-    try:
-        import speech_recognition  # noqa: F401
-        return True
-    except ImportError:
-        return False
-
-
-def print_stt_install_guide():
-    """STT 라이브러리 설치 안내를 출력한다."""
-    print()
-    print('  ※ SpeechRecognition 라이브러리가 설치되지 않았습니다.')
-    print('  아래 명령어로 설치한 뒤 다시 실행해주세요.')
-    print()
-    print('    pip install SpeechRecognition')
-    print()
-    print('  설치 후 인터넷 연결 상태에서 STT 기능을 사용할 수 있습니다.')
+def wav_to_csv_path(wav_path):
+    """WAV 파일 경로로부터 대응하는 CSV 경로를 반환한다."""
+    base = os.path.splitext(os.path.basename(wav_path))[0]
+    return os.path.join(TRANSCRIPTS_DIR, base + '.csv')
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -63,159 +50,120 @@ def print_stt_install_guide():
 
 def record_audio(file_path):
     """
-    마이크를 인식하고 음성을 녹음하여 WAV 파일로 저장한다.
-
-    sounddevice 기본 dtype(float32)을 PCM int16으로 변환하여
-    SpeechRecognition 등 표준 WAV 도구와 호환되도록 저장한다.
+    마이크로 음성을 녹음하여 PCM int16 WAV 파일로 저장한다.
+    Enter 키를 누르면 녹음이 종료된다.
     """
     try:
         import sounddevice as sd
         import numpy as np
     except ImportError:
-        print('필요한 라이브러리가 없습니다. 아래 명령어로 설치해주세요:')
-        print('  pip install sounddevice numpy')
+        print('pip install sounddevice numpy')
         return False
 
-    import wave
-    import struct
-
-    sample_rate = 44100
     print('녹음을 시작합니다. Enter를 누르면 녹음이 종료됩니다...')
 
     frames = []
-    recording = [True]
 
     def callback(indata, frame_count, time_info, status):
-        if recording[0]:
-            frames.append(indata.copy())
+        frames.append(indata.copy())
 
     with sd.InputStream(
-        samplerate=sample_rate,
+        samplerate=SAMPLE_RATE,
         channels=1,
         dtype='float32',
         callback=callback
     ):
         input()
-        recording[0] = False
 
     if not frames:
         print('녹음된 데이터가 없습니다.')
         return False
 
-    audio_float = np.concatenate(frames, axis=0).flatten()
+    # float32 → int16 변환 후 PCM WAV 저장
+    audio = np.concatenate(frames).flatten()
+    audio = (np.clip(audio, -1.0, 1.0) * 32767).astype(np.int16)
 
-    # float32(-1.0 ~ 1.0) → int16(-32768 ~ 32767) 변환
-    audio_int16 = (
-        np.clip(audio_float, -1.0, 1.0) * 32767
-    ).astype(np.int16)
-
-    # 표준 PCM WAV(format 1)로 저장 — wave 표준 모듈 사용
     with wave.open(file_path, 'wb') as wf:
         wf.setnchannels(1)
-        wf.setsampwidth(2)           # int16 = 2바이트
-        wf.setframerate(sample_rate)
-        wf.writeframes(audio_int16.tobytes())
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(audio.tobytes())
 
     print(f'녹음 완료: {file_path}')
     return True
 
 
 def play_audio(file_path):
-    """
-    녹음 파일을 재생한다.
-
-    Mac에서는 기본 내장 명령어 afplay를 우선 사용하고,
-    그 외 환경에서는 sounddevice로 재생한다.
-    """
-    import subprocess
-    import sys
-
+    """녹음 파일을 재생한다. Mac은 afplay, 그 외는 sounddevice를 사용한다."""
     if not os.path.exists(file_path):
         print(f'파일을 찾을 수 없습니다: {file_path}')
         return
 
     print(f'재생 중: {os.path.basename(file_path)}')
 
-    # Mac 환경: afplay 사용 (별도 설치 불필요)
     if sys.platform == 'darwin':
-        result = subprocess.run(
-            ['afplay', file_path],
-            capture_output=True
-        )
-        if result.returncode == 0:
-            print('재생 완료.')
-            return
-        print('afplay 실패, sounddevice로 재시도합니다.')
+        subprocess.run(['afplay', file_path])
+        print('재생 완료.')
+        return
 
-    # 그 외 환경: sounddevice 사용
     try:
         import sounddevice as sd
         import numpy as np
-        import wave
     except ImportError:
-        print('sounddevice 라이브러리가 없습니다:')
-        print('  pip install sounddevice numpy')
+        print('pip install sounddevice numpy')
         return
 
     with wave.open(file_path, 'rb') as wf:
-        sample_rate = wf.getframerate()
-        n_channels = wf.getnchannels()
-        sampwidth = wf.getsampwidth()
+        rate = wf.getframerate()
+        sw = wf.getsampwidth()
         raw = wf.readframes(wf.getnframes())
+        channels = wf.getnchannels()
 
     dtype_map = {1: np.int8, 2: np.int16, 4: np.int32}
-    dtype = dtype_map.get(sampwidth, np.int16)
+    dtype = dtype_map.get(sw, np.int16)
     audio = np.frombuffer(raw, dtype=dtype)
-    if n_channels > 1:
-        audio = audio.reshape(-1, n_channels)
+    if channels > 1:
+        audio = audio.reshape(-1, channels)
     audio = audio.astype(np.float32) / np.iinfo(dtype).max
 
-    sd.play(audio, samplerate=sample_rate)
+    sd.play(audio, samplerate=rate)
     sd.wait()
     print('재생 완료.')
 
 
 def list_records():
-    """records 폴더의 모든 WAV 파일 목록을 반환한다."""
-    if not os.path.exists('records'):
+    """records 폴더의 WAV 파일 목록을 반환한다."""
+    if not os.path.exists(RECORDS_DIR):
         return []
-    files = sorted([
-        f for f in os.listdir('records') if f.endswith('.wav')
+    return sorted([
+        f for f in os.listdir(RECORDS_DIR) if f.endswith('.wav')
     ])
-    return files
 
 
 def list_records_by_date(start_date, end_date):
-    """특정 날짜 범위에 해당하는 녹음 파일 목록을 출력한다."""
-    if not os.path.exists('records'):
-        print('records 폴더가 없습니다.')
-        return
-
+    """날짜 범위(YYYYMMDD)에 해당하는 녹음 파일 목록을 출력한다."""
     try:
         start = datetime.datetime.strptime(start_date, '%Y%m%d')
         end = datetime.datetime.strptime(end_date, '%Y%m%d')
     except ValueError:
-        print('날짜 형식이 올바르지 않습니다. 예: 20260101')
+        print('날짜 형식 오류. 예: 20260101')
         return
 
     found = []
-    for file_name in sorted(os.listdir('records')):
-        if not file_name.endswith('.wav'):
-            continue
-        date_part = file_name.split('-')[0]
+    for name in list_records():
         try:
-            file_date = datetime.datetime.strptime(date_part, '%Y%m%d')
-            if start <= file_date <= end:
-                found.append(file_name)
+            date = datetime.datetime.strptime(name.split('-')[0], '%Y%m%d')
+            if start <= date <= end:
+                found.append(name)
         except ValueError:
             continue
 
     if found:
         print(f'\n{start_date} ~ {end_date} 범위의 녹음 파일:')
-        for file_name in found:
-            print(f'  {file_name}')
+        for name in found:
+            print(f'  {name}')
     else:
-        print('해당 날짜 범위의 녹음 파일이 없습니다.')
+        print('해당 날짜 범위의 파일이 없습니다.')
 
 
 def select_file():
@@ -226,385 +174,211 @@ def select_file():
         return None
 
     print('\n녹음 파일 목록:')
-    for i, file_name in enumerate(files, 1):
-        print(f'  {i}. {file_name}')
+    for i, name in enumerate(files, 1):
+        print(f'  {i}. {name}')
 
-    user_input = input('파일 번호 선택: ').strip()
-    if user_input.isdigit() and 1 <= int(user_input) <= len(files):
-        return os.path.join('records', files[int(user_input) - 1])
+    choice = input('파일 번호 선택: ').strip()
+    if choice.isdigit() and 1 <= int(choice) <= len(files):
+        return os.path.join(RECORDS_DIR, files[int(choice) - 1])
 
     print('올바른 번호를 입력해주세요.')
     return None
 
 
 # ─────────────────────────────────────────────────────────────────
-# 문제 8: STT - 음성 파일 → 텍스트 추출
+# 문제 8: STT
 # ─────────────────────────────────────────────────────────────────
 
-def get_wav_format_tag(file_path):
+def fix_wav_format(file_path):
     """
-    WAV 파일의 format tag를 반환한다.
-
-    표준 라이브러리만 사용하여 WAV 헤더를 직접 읽는다.
-
-    Args:
-        file_path (str): WAV 파일 경로
-
-    Returns:
-        int: format tag (1=PCM, 3=IEEE float) 또는 읽기 실패 시 -1
+    float32 WAV(format 3)를 PCM int16(format 1)으로 변환한다.
+    SpeechRecognition은 PCM WAV만 지원하기 때문에 필요하다.
     """
-    import struct
-    try:
-        with open(file_path, 'rb') as f:
-            f.seek(20)              # fmt 청크 내 AudioFormat 오프셋
-            tag = struct.unpack('<H', f.read(2))[0]
-        return tag
-    except (OSError, struct.error):
-        return -1
+    with open(file_path, 'rb') as f:
+        f.seek(20)
+        fmt_tag = struct.unpack('<H', f.read(2))[0]
 
+    if fmt_tag != 3:
+        return  # 이미 PCM이면 변환 불필요
 
-def convert_to_pcm16(src_path):
-    """
-    float32 WAV 파일을 PCM int16 WAV로 변환하여 원본 파일을 덮어쓴다.
+    print('  [포맷 변환] float32 → PCM int16 변환 중...')
 
-    SpeechRecognition은 PCM int16(format tag 1)만 지원하므로
-    float32(format tag 3)로 저장된 파일을 변환한다.
-    numpy 없이 표준 라이브러리 struct 모듈로 처리한다.
+    with open(file_path, 'rb') as f:
+        f.seek(20)
+        fmt_tag = struct.unpack('<H', f.read(2))[0]
+        f.seek(22)
+        channels = struct.unpack('<H', f.read(2))[0]
+        sample_rate = struct.unpack('<I', f.read(4))[0]
+        f.seek(16)
+        fmt_size = struct.unpack('<I', f.read(4))[0]
+        f.seek(20 + fmt_size)          # fmt 청크 끝으로 이동
 
-    Args:
-        src_path (str): 변환할 WAV 파일 경로
+        # data 청크 탐색
+        while True:
+            chunk_id = f.read(4)
+            chunk_size = struct.unpack('<I', f.read(4))[0]
+            if chunk_id == b'data':
+                raw = f.read(chunk_size)
+                break
+            f.read(chunk_size)
 
-    Returns:
-        bool: 변환 성공 시 True, 실패 시 False
-    """
-    import struct
-    import wave
+    # float32 → int16
+    count = len(raw) // 4
+    floats = struct.unpack(f'<{count}f', raw)
+    int16 = [int(max(-1.0, min(1.0, v)) * 32767) for v in floats]
+    int16_raw = struct.pack(f'<{count}h', *int16)
 
-    try:
-        # 원본 헤더 정보 읽기
-        with open(src_path, 'rb') as f:
-            riff_id = f.read(4)           # 'RIFF'
-            f.read(4)                      # chunk size
-            wave_id = f.read(4)           # 'WAVE'
-            fmt_id = f.read(4)            # 'fmt '
-            fmt_size = struct.unpack('<I', f.read(4))[0]
-            fmt_tag = struct.unpack('<H', f.read(2))[0]
-            channels = struct.unpack('<H', f.read(2))[0]
-            sample_rate = struct.unpack('<I', f.read(4))[0]
-            f.read(4)                      # byte rate
-            f.read(2)                      # block align
-            bits = struct.unpack('<H', f.read(2))[0]
+    with wave.open(file_path, 'wb') as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)
+        wf.setframerate(sample_rate)
+        wf.writeframes(int16_raw)
 
-            # fmt_size가 16보다 크면 확장 바이트 건너뜀
-            extra = fmt_size - 16
-            if extra > 0:
-                f.read(extra)
-
-            # data 청크 찾기
-            while True:
-                chunk_id = f.read(4)
-                if not chunk_id:
-                    return False
-                chunk_size = struct.unpack('<I', f.read(4))[0]
-                if chunk_id == b'data':
-                    raw = f.read(chunk_size)
-                    break
-                f.read(chunk_size)
-
-        if fmt_tag != 3:
-            return True     # 이미 PCM — 변환 불필요
-
-        # float32 바이트 → int16 변환 (numpy 없이 struct 사용)
-        float_count = len(raw) // 4
-        floats = struct.unpack(f'<{float_count}f', raw)
-
-        def clamp(v):
-            return max(-1.0, min(1.0, v))
-
-        int16_vals = [int(clamp(v) * 32767) for v in floats]
-        int16_raw = struct.pack(f'<{float_count}h', *int16_vals)
-
-        # PCM WAV로 덮어쓰기
-        with wave.open(src_path, 'wb') as wf:
-            wf.setnchannels(channels)
-            wf.setsampwidth(2)
-            wf.setframerate(sample_rate)
-            wf.writeframes(int16_raw)
-
-        return True
-
-    except (OSError, struct.error, wave.Error) as err:
-        print(f'  [변환 오류] {err}')
-        return False
+    print('  [포맷 변환] 완료')
 
 
 def transcribe_audio(file_path, language='ko-KR'):
     """
-    WAV 파일에서 STT를 수행하여 (시간, 텍스트) 결과 목록을 반환한다.
+    WAV 파일을 STT 변환하여 (시작시간, 텍스트) 목록을 반환한다.
 
-    SpeechRecognition 라이브러리와 Google Web Speech API를 사용한다.
-    float32 포맷 파일은 자동으로 PCM int16으로 변환 후 처리한다.
-    파일을 30초 단위 청크로 분할하여 긴 파일도 지원한다.
-
-    Args:
-        file_path (str): 변환할 WAV 파일 경로
-        language (str): 인식 언어 코드 (기본값: 'ko-KR')
-
-    Returns:
-        list[tuple]: [(시간문자열, 인식텍스트), ...] 또는 오류 시 빈 리스트
+    파일 길이에 따라 청크 단위를 자동 조정한다.
+      60초 이상 → 30초 단위
+      10초 이상 → 10초 단위
+      10초 미만 →  5초 단위
     """
-    if not check_stt_library():
-        print_stt_install_guide()
+    try:
+        import speech_recognition as sr
+    except ImportError:
+        print('pip install SpeechRecognition')
         return []
 
-    import speech_recognition as sr
-
-    if not os.path.exists(file_path):
-        print(f'파일을 찾을 수 없습니다: {file_path}')
-        return []
-
-    # float32 WAV는 SR이 읽지 못하므로 PCM int16으로 자동 변환
-    fmt_tag = get_wav_format_tag(file_path)
-    if fmt_tag == 3:
-        print('  [포맷 변환] float32 → PCM int16 자동 변환 중...')
-        if not convert_to_pcm16(file_path):
-            print('  [오류] 포맷 변환 실패. 파일을 확인해주세요.')
-            return []
-        print('  [포맷 변환] 완료')
+    fix_wav_format(file_path)
 
     recognizer = sr.Recognizer()
     results = []
 
-    print(f'\nSTT 변환 중: {os.path.basename(file_path)}')
-    print('-' * 45)
-
-    # 전체 오디오 길이 먼저 파악
     try:
         with sr.AudioFile(file_path) as source:
-            total_duration = source.DURATION
+            total = source.DURATION
     except ValueError as err:
-        print(f'  [오류] 오디오 파일을 열 수 없습니다: {err}')
+        print(f'파일 열기 실패: {err}')
         return []
 
-    if total_duration is None or total_duration <= 0:
-        print('오디오 길이를 읽을 수 없습니다.')
-        return []
-
-    # 파일 길이에 따라 청크 크기를 자동 조정한다
-    # 60초 이상: 30초 단위 / 10초 이상: 10초 단위 / 그 미만: 5초 단위
-    if total_duration >= 60:
-        chunk_duration = 30.0
-    elif total_duration >= 10:
-        chunk_duration = 10.0
+    # 파일 길이에 따라 청크 크기 자동 결정
+    if total >= 60:
+        chunk = 30.0
+    elif total >= 10:
+        chunk = 10.0
     else:
-        chunk_duration = 5.0
+        chunk = 5.0
 
-    print(f'  파일 길이: {total_duration:.1f}초 / 청크: {chunk_duration:.0f}초 단위')
+    print(f'\nSTT 변환 중: {os.path.basename(file_path)}')
+    print(f'  길이: {total:.1f}초 / 청크: {chunk:.0f}초 단위')
+    print('-' * 45)
 
     offset = 0.0
-    while offset < total_duration:
-        current_chunk = min(chunk_duration, total_duration - offset)
-        end_offset = offset + current_chunk
+    while offset < total:
+        duration = min(chunk, total - offset)
+        t_start = time_str(offset)
+        t_end = time_str(offset + duration)
 
-        # 시간 표시: 시작~끝 구간 (예: 00:00~00:10)
-        def fmt_time(sec):
-            return '{:02d}:{:02d}'.format(int(sec) // 60, int(sec) % 60)
-
-        time_str = fmt_time(offset)
-        time_range = f'{fmt_time(offset)}~{fmt_time(end_offset)}'
-
-        # 매 청크마다 파일을 새로 열어 원하는 구간을 읽는다
         with sr.AudioFile(file_path) as source:
-            audio_chunk = recognizer.record(
-                source,
-                offset=offset,
-                duration=current_chunk
+            audio = recognizer.record(
+                source, offset=offset, duration=duration
             )
 
         try:
-            text = recognizer.recognize_google(
-                audio_chunk,
-                language=language
-            )
-            print(f'  [{time_range}] {text}')
-            results.append((time_str, text))
+            text = recognizer.recognize_google(audio, language=language)
+            print(f'  [{t_start}~{t_end}] {text}')
+            results.append((t_start, text))
 
         except sr.UnknownValueError:
-            # 무음 구간도 시간 정보와 함께 CSV에 기록한다
-            print(f'  [{time_range}] (인식 불가 - 무음 또는 잡음)')
-            results.append((time_str, '(인식 불가)'))
+            print(f'  [{t_start}~{t_end}] (인식 불가)')
+            results.append((t_start, '(인식 불가)'))
 
         except sr.RequestError as err:
-            msg = f'API 요청 오류: {err}'
-            print(f'  [{time_range}] {msg}')
-            print('  ※ 인터넷 연결을 확인해주세요.')
-            results.append((time_str, msg))
+            print(f'  [{t_start}~{t_end}] API 오류: {err}')
+            results.append((t_start, f'API 오류: {err}'))
 
-        offset += current_chunk
+        offset += duration
 
     return results
 
 
-def save_transcript_csv(wav_path, transcript_data):
-    """
-    STT 결과를 CSV 파일로 저장한다.
+def save_csv(wav_path, data):
+    """STT 결과를 WAV와 같은 이름의 CSV 파일로 저장한다."""
+    make_dir(TRANSCRIPTS_DIR)
+    csv_path = wav_to_csv_path(wav_path)
 
-    파일 이름은 WAV 파일과 동일하게 하되 확장자는 .csv로 저장하며
-    transcripts 폴더에 위치한다. 인식 불가 구간도 포함하여 저장한다.
-
-    Args:
-        wav_path (str): 원본 WAV 파일 경로
-        transcript_data (list[tuple]): [(시간, 텍스트), ...] 목록
-
-    Returns:
-        str: 저장된 CSV 파일 경로
-    """
-    create_transcripts_folder()
-
-    base_name = os.path.splitext(os.path.basename(wav_path))[0]
-    csv_path = os.path.join('transcripts', base_name + '.csv')
-
-    with open(csv_path, 'w', newline='', encoding='utf-8') as csv_file:
-        writer = csv.writer(csv_file)
+    with open(csv_path, 'w', newline='', encoding='utf-8') as f:
+        writer = csv.writer(f)
         writer.writerow(['시간', '인식된 텍스트'])
-        writer.writerows(transcript_data)
+        writer.writerows(data)
 
-    print(f'\nCSV 저장 완료: {csv_path}')
-    print(f'  저장된 항목 수: {len(transcript_data)}개')
+    print(f'\nCSV 저장: {csv_path} ({len(data)}개 항목)')
     return csv_path
 
 
-def convert_selected_record():
-    """사용자가 선택한 WAV 파일 하나를 STT 변환하여 CSV로 저장한다."""
-    if not check_stt_library():
-        print_stt_install_guide()
-        return
-
+def convert_one():
+    """선택한 WAV 파일 1개를 STT 변환하여 CSV로 저장한다."""
     wav_path = select_file()
-    if not wav_path:
-        return
+    if wav_path:
+        save_csv(wav_path, transcribe_audio(wav_path))
 
-    transcript_data = transcribe_audio(wav_path)
-    save_transcript_csv(wav_path, transcript_data)
-
-
-def convert_all_records():
-    """
-    records 폴더의 모든 WAV 파일을 STT 변환하여 CSV로 저장한다.
-
-    이미 변환된 파일(동일 이름 CSV 존재)은 건너뛴다.
-    """
-    if not check_stt_library():
-        print_stt_install_guide()
-        return
-
-    files = list_records()
-    if not files:
-        print('변환할 녹음 파일이 없습니다.')
-        return
-
-    create_transcripts_folder()
-    converted = 0
-
-    for file_name in files:
-        base_name = os.path.splitext(file_name)[0]
-        csv_path = os.path.join('transcripts', base_name + '.csv')
-
-        wav_path = os.path.join('records', file_name)
-        transcript_data = transcribe_audio(wav_path)
-        save_transcript_csv(wav_path, transcript_data)
-        converted += 1
-
-    print(f'\n전체 변환 완료: {converted}개 파일 처리됨')
 
 
 # ─────────────────────────────────────────────────────────────────
-# 문제 8 보너스: 키워드 검색
+# 보너스: 키워드 검색
 # ─────────────────────────────────────────────────────────────────
 
 def search_keyword(keyword):
-    """
-    transcripts 폴더의 모든 CSV 파일에서 키워드를 검색하여 출력한다.
-
-    검색 결과에서 키워드는 [ ] 로 강조 표시된다.
-
-    Args:
-        keyword (str): 검색할 키워드
-    """
-    if not os.path.exists('transcripts'):
-        print('transcripts 폴더가 없습니다. 먼저 STT 변환을 진행해주세요.')
+    """transcripts 폴더의 모든 CSV에서 키워드를 검색하여 출력한다."""
+    if not os.path.exists(TRANSCRIPTS_DIR):
+        print('변환된 파일이 없습니다. 먼저 STT 변환을 실행해주세요.')
         return
 
     csv_files = sorted([
-        f for f in os.listdir('transcripts') if f.endswith('.csv')
+        f for f in os.listdir(TRANSCRIPTS_DIR) if f.endswith('.csv')
     ])
 
     if not csv_files:
-        print('저장된 CSV 파일이 없습니다. 먼저 STT 변환을 진행해주세요.')
+        print('CSV 파일이 없습니다.')
         return
 
-    total_matches = 0
-    print(f'\n[키워드 검색] "{keyword}"')
-    print('=' * 50)
+    total = 0
+    print(f'\n[검색] "{keyword}"')
+    print('=' * 45)
 
     for csv_file in csv_files:
-        csv_path = os.path.join('transcripts', csv_file)
-        file_matches = []
-
-        with open(csv_path, 'r', encoding='utf-8') as f:
+        matches = []
+        with open(os.path.join(TRANSCRIPTS_DIR, csv_file),
+                  'r', encoding='utf-8') as f:
             reader = csv.reader(f)
-            next(reader, None)  # 헤더 행 건너뜀
+            next(reader)  # 헤더 건너뜀
             for row in reader:
-                if len(row) < 2:
-                    continue
-                time_str, text = row[0], row[1]
-                if keyword in text:
-                    file_matches.append((time_str, text))
+                if len(row) >= 2 and keyword in row[1]:
+                    matches.append(row)
 
-        if file_matches:
+        if matches:
             print(f'\n파일: {csv_file}')
-            print('-' * 50)
-            for time_str, text in file_matches:
-                highlighted = text.replace(keyword, f'[{keyword}]')
-                print(f'  [{time_str}] {highlighted}')
-            total_matches += len(file_matches)
+            print('-' * 45)
+            for row in matches:
+                highlighted = row[1].replace(keyword, f'[{keyword}]')
+                print(f'  [{row[0]}] {highlighted}')
+            total += len(matches)
 
-    print('\n' + '=' * 50)
-    if total_matches == 0:
-        print(f'"{keyword}"을(를) 찾을 수 없습니다.')
+    print('\n' + '=' * 45)
+    if total == 0:
+        print(f'"{keyword}" 검색 결과 없음.')
     else:
-        print(f'총 {total_matches}개 항목에서 "{keyword}" 발견.')
+        print(f'총 {total}개 항목 발견.')
 
 
 # ─────────────────────────────────────────────────────────────────
 # STT 결과 보기
 # ─────────────────────────────────────────────────────────────────
 
-def show_transcript(csv_path):
-    """지정한 CSV 파일의 전체 STT 결과를 출력한다."""
-    if not os.path.exists(csv_path):
-        print(f'\n[안내] 아직 변환되지 않은 파일입니다: {csv_path}')
-        print('  메뉴 4번(선택 변환) 또는 5번(전체 변환)을 먼저 실행해주세요.')
-        return
-
-    print(f'\n[STT 결과] {os.path.basename(csv_path)}')
-    print('-' * 50)
-
-    with open(csv_path, 'r', encoding='utf-8') as f:
-        reader = csv.reader(f)
-        next(reader, None)  # 헤더 건너뜀
-        rows = list(reader)
-
-    if not rows:
-        print('  (저장된 내용이 없습니다.)')
-        return
-
-    for row in rows:
-        if len(row) >= 2:
-            print(f'  [{row[0]}] {row[1]}')
-
-
-def select_and_show_transcript():
+def show_transcript():
     """WAV 파일을 선택하여 해당 CSV 변환 결과를 출력한다."""
     files = list_records()
     if not files:
@@ -612,93 +386,87 @@ def select_and_show_transcript():
         return
 
     print('\n녹음 파일 목록:')
-    for i, file_name in enumerate(files, 1):
-        base_name = os.path.splitext(file_name)[0]
-        csv_path = os.path.join('transcripts', base_name + '.csv')
+    for i, name in enumerate(files, 1):
+        csv_path = wav_to_csv_path(os.path.join(RECORDS_DIR, name))
         status = '[변환됨]' if os.path.exists(csv_path) else '[미변환]'
-        print(f'  {i}. {file_name} {status}')
+        print(f'  {i}. {name} {status}')
 
-    user_input = input('파일 번호 선택: ').strip()
-    if not (user_input.isdigit() and 1 <= int(user_input) <= len(files)):
+    choice = input('파일 번호 선택: ').strip()
+    if not (choice.isdigit() and 1 <= int(choice) <= len(files)):
         print('올바른 번호를 입력해주세요.')
         return
 
-    selected = files[int(user_input) - 1]
-    base_name = os.path.splitext(selected)[0]
-    csv_path = os.path.join('transcripts', base_name + '.csv')
-    show_transcript(csv_path)
+    csv_path = wav_to_csv_path(
+        os.path.join(RECORDS_DIR, files[int(choice) - 1])
+    )
+
+    if not os.path.exists(csv_path):
+        print('아직 변환되지 않은 파일입니다. 메뉴 4번 또는 5번을 먼저 실행해주세요.')
+        return
+
+    print(f'\n[STT 결과] {os.path.basename(csv_path)}')
+    print('-' * 45)
+    with open(csv_path, 'r', encoding='utf-8') as f:
+        reader = csv.reader(f)
+        next(reader)  # 헤더 건너뜀
+        for row in reader:
+            if len(row) >= 2:
+                print(f'  [{row[0]}] {row[1]}')
 
 
 # ─────────────────────────────────────────────────────────────────
-# 메뉴
+# 메뉴 & 실행
 # ─────────────────────────────────────────────────────────────────
 
 def show_menu():
     """메뉴를 출력하고 사용자 입력을 반환한다."""
-    if check_stt_library():
+    try:
+        import speech_recognition  # noqa: F401
         stt_status = 'OK'
-    else:
-        stt_status = '미설치 - pip install SpeechRecognition'
+    except ImportError:
+        stt_status = '미설치 → pip install SpeechRecognition'
+
     print('\n=== 자비스 음성 녹음 & STT 앱 ===')
-    print(f'[STT 라이브러리: {stt_status}]')
-    print('--- 문제 7: 녹음 ---')
+    print(f'[STT: {stt_status}]')
     print('1. 녹음 시작')
     print('2. 녹음 파일 듣기')
     print('3. 날짜별 녹음 파일 조회')
-    print('--- 문제 8: STT ---')
-    print('4. 선택 파일 STT 변환 (→ CSV 저장)')
-    print('5. 전체 파일 STT 변환 (→ CSV 저장)')
-    print('6. STT 결과 보기')
-    print('--- 보너스: 키워드 검색 ---')
-    print('7. 키워드 검색')
-    print('-' * 34)
+    print('4. 선택 파일 STT 변환 (→ CSV)')
+    print('5. STT 결과 보기')
+    print('6. 키워드 검색')
     print('0. 종료')
     return input('선택: ').strip()
 
 
 def run():
     """앱 메인 루프를 실행한다."""
-    create_records_folder()
-    create_transcripts_folder()
+    make_dir(RECORDS_DIR)
+    make_dir(TRANSCRIPTS_DIR)
+
+    actions = {
+        '1': lambda: record_audio(
+            os.path.join(
+                RECORDS_DIR,
+                datetime.datetime.now().strftime('%Y%m%d-%H%M%S') + '.wav'
+            )
+        ),
+        '2': lambda: play_audio(select_file() or ''),
+        '3': lambda: list_records_by_date(
+            input('시작 날짜 (예: 20260101): ').strip(),
+            input('종료 날짜 (예: 20260131): ').strip()
+        ),
+        '4': convert_one,
+        '5': show_transcript,
+        '6': lambda: search_keyword(input('검색 키워드: ').strip()),
+    }
 
     while True:
         choice = show_menu()
-
-        if choice == '1':
-            file_name = get_file_name()
-            file_path = os.path.join('records', file_name)
-            record_audio(file_path)
-
-        elif choice == '2':
-            file_path = select_file()
-            if file_path:
-                play_audio(file_path)
-
-        elif choice == '3':
-            start_date = input('시작 날짜 입력 (예: 20260101): ').strip()
-            end_date = input('종료 날짜 입력 (예: 20260131): ').strip()
-            list_records_by_date(start_date, end_date)
-
-        elif choice == '4':
-            convert_selected_record()
-
-        elif choice == '5':
-            convert_all_records()
-
-        elif choice == '6':
-            select_and_show_transcript()
-
-        elif choice == '7':
-            keyword = input('검색할 키워드 입력: ').strip()
-            if keyword:
-                search_keyword(keyword)
-            else:
-                print('키워드를 입력해주세요.')
-
-        elif choice == '0':
+        if choice == '0':
             print('앱을 종료합니다.')
             break
-
+        elif choice in actions:
+            actions[choice]()
         else:
             print('올바른 번호를 입력해주세요.')
 
