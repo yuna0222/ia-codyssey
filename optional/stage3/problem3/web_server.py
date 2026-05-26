@@ -7,6 +7,7 @@ http.server 라이브러리를 사용하여 간단한 웹 서버를 구현한다
 import http.server
 import os
 
+
 PORT = 8080
 
 
@@ -15,7 +16,6 @@ class MyHttpRequestHandler(http.server.BaseHTTPRequestHandler):
 
     def do_GET(self):
         """GET 요청을 처리한다."""
-        # 이미지 요청 처리 (보너스)
         if self.path.startswith('/images/'):
             self.serve_image()
         else:
@@ -62,8 +62,14 @@ class MyHttpRequestHandler(http.server.BaseHTTPRequestHandler):
         }
         content_type = content_type_map.get(ext, 'application/octet-stream')
 
-        with open(image_path, 'rb') as f:
-            image_data = f.read()
+        try:
+            with open(image_path, 'rb') as f:
+                image_data = f.read()
+        except (FileNotFoundError, OSError):
+            self.send_response(500)
+            self.end_headers()
+            self.wfile.write(b'Failed to read image')
+            return
 
         self.send_response(200)
         self.send_header('Content-Type', content_type)
@@ -79,8 +85,19 @@ class MyHttpRequestHandler(http.server.BaseHTTPRequestHandler):
 def run_server():
     """HTTP 서버를 실행한다."""
     server_address = ('', PORT)
-    httpd = http.server.HTTPServer(server_address, MyHttpRequestHandler)
-    print(f'HTTP 서버가 시작되었습니다. http://localhost:{PORT}')
+
+    try:
+        httpd = http.server.HTTPServer(server_address, MyHttpRequestHandler)
+    except OSError:
+        print(f'포트 {PORT}번이 이미 사용 중입니다.')
+        print('다른 포트 번호를 입력하거나 Enter를 누르면 기본 포트(8888)를 사용합니다.')
+        user_input = input('포트 번호 입력: ').strip()
+        port = int(user_input) if user_input.isdigit() else 8888
+        httpd = http.server.HTTPServer(('', port), MyHttpRequestHandler)
+        print(f'HTTP 서버가 시작되었습니다. http://localhost:{port}')
+    else:
+        print(f'HTTP 서버가 시작되었습니다. http://localhost:{PORT}')
+
     print('종료하려면 Ctrl+C를 누르세요.')
 
     try:
