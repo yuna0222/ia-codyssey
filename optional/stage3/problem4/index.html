@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>우주 해적단 - Space Pirates</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            background-color: #f5e6d3;
+            color: #3d1f0a;
+            font-family: 'Courier New', monospace;
+        }
+
+        header {
+            background: linear-gradient(135deg, #c1440e, #e8721a, #f5a623);
+            padding: 50px 20px;
+            text-align: center;
+            box-shadow: 0 4px 15px rgba(193, 68, 14, 0.4);
+        }
+
+        header h1 {
+            font-size: 3em;
+            color: #fff;
+            text-shadow: 2px 2px 8px rgba(0,0,0,0.4);
+            letter-spacing: 6px;
+        }
+
+        header p {
+            font-size: 1.2em;
+            color: #ffe8cc;
+            margin-top: 12px;
+        }
+
+        .skull {
+            font-size: 4em;
+            margin-bottom: 10px;
+        }
+
+        nav {
+            background-color: #c1440e;
+            padding: 15px;
+            text-align: center;
+        }
+
+        nav a {
+            color: #ffe8cc;
+            text-decoration: none;
+            margin: 0 20px;
+            font-size: 1.05em;
+            letter-spacing: 2px;
+            font-weight: bold;
+        }
+
+        nav a:hover {
+            color: #fff;
+            text-decoration: underline;
+        }
+
+        main {
+            max-width: 900px;
+            margin: 40px auto;
+            padding: 0 20px;
+        }
+
+        section {
+            background-color: #fff5ec;
+            border: 2px solid #e8a87c;
+            border-radius: 10px;
+            padding: 30px;
+            margin-bottom: 28px;
+            box-shadow: 0 3px 10px rgba(193, 68, 14, 0.15);
+        }
+
+        section h2 {
+            color: #c1440e;
+            font-size: 1.7em;
+            margin-bottom: 15px;
+            border-bottom: 2px solid #f0c9a0;
+            padding-bottom: 10px;
+        }
+
+        section p {
+            line-height: 1.9;
+            color: #4a2010;
+        }
+
+        .crew-list {
+            list-style: none;
+            padding: 0;
+        }
+
+        .crew-list li {
+            padding: 12px 0;
+            border-bottom: 1px solid #f0c9a0;
+            color: #4a2010;
+        }
+
+        .crew-list li:last-child {
+            border-bottom: none;
+        }
+
+        .crew-list li span {
+            color: #c1440e;
+            font-weight: bold;
+        }
+
+        .dust {
+            background: linear-gradient(90deg, #e8721a, #c1440e, #e8721a);
+            height: 6px;
+            border-radius: 3px;
+            margin: 20px 0;
+            opacity: 0.4;
+        }
+
+        footer {
+            text-align: center;
+            padding: 30px;
+            color: #a0704a;
+            border-top: 2px solid #e8a87c;
+            background-color: #fdecd8;
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="skull">🚀</div>
+    <h1>SPACE PIRATES</h1>
+    <p>우주를 항해하는 자유로운 영혼들</p>
+</header>
+
+<nav>
+    <a href="#about">소개</a>
+    <a href="#mission">미션</a>
+    <a href="#crew">크루</a>
+    <a href="#contact">연락처</a>
+</nav>
+
+<main>
+    <section id="about">
+        <h2>🪐 우리는 누구인가</h2>
+        <div class="dust"></div>
+        <p>
+            우주 해적단은 광활한 우주를 무대로 활동하는 자유로운 탐험가들의 모임입니다.
+            우리는 어떠한 행성 정부에도 속하지 않으며, 오직 자유와 모험을 추구합니다.
+            화성, 목성, 토성의 고리를 넘나들며 우주의 신비를 탐구하고 있습니다.
+        </p>
+    </section>
+
+    <section id="mission">
+        <h2>🌌 우리의 미션</h2>
+        <div class="dust"></div>
+        <p>
+            알려지지 않은 우주의 영역을 탐험하고, 새로운 자원을 발견하며,
+            우주 곳곳에 흩어진 고대 문명의 흔적을 추적합니다.
+            현재는 화성 기지를 거점으로 태양계 외곽 탐험을 준비 중입니다.
+        </p>
+    </section>
+
+    <section id="crew">
+        <h2>👨‍🚀 크루 소개</h2>
+        <div class="dust"></div>
+        <ul class="crew-list">
+            <li><span>선장 한송희</span> — 화성 탐험대 수석 과학자, 현재 화성 고립 중</li>
+            <li><span>항법사 김철수</span> — 태양계 항법 전문가</li>
+            <li><span>엔지니어 이영희</span> — 우주선 수리 및 개조 담당</li>
+            <li><span>의무관 박민준</span> — 우주 의학 전문가</li>
+        </ul>
+    </section>
+
+    <section id="contact">
+        <h2>📡 연락처</h2>
+        <div class="dust"></div>
+        <p>
+            화성 궤도 위성 주파수: 999MHz<br>
+            비상 연락처: SOS-MARS-001<br>
+            본부: 지구 달 기지 격납고 7호
+        </p>
+    </section>
+</main>
+
+<footer>
+    <p>🚀 SPACE PIRATES 🚀 | 우주 어딘가에서 운영 중 | &copy; 2026</p>
+</footer>
+
+</body>
+</html>
