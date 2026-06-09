@@ -268,8 +268,11 @@ def draw_summary_image(summary, out_path='mars_weather_summary.png'):
 
         draw_bar(canvas, bx, by, bar_w, bar_h_px, color)
 
-        # 값 표시 (막대 위)
-        val_str = f'{val:.0f}'
+        # 값 표시 (막대 위) — AVG는 소수점 1자리, 나머지는 정수
+        if label == 'AVG':
+            val_str = f'{val:.1f}'
+        else:
+            val_str = f'{val:.0f}'
         draw_text(canvas, val_str,
                   bx + 4, by - 18, COLOR_LABEL, scale=1)
 

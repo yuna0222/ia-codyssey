@@ -7,9 +7,7 @@ mars_weather_summary.py - 화성 날씨 데이터 MySQL 저장
 """
 
 import csv
-import subprocess
 import sys
-import time
 
 try:
     import mysql.connector
@@ -21,103 +19,14 @@ except ImportError:
 
 
 # ─────────────────────────────────────────────────────────────────
-# MySQL 서버 시작 및 DB 초기화
+# 설정
 # ─────────────────────────────────────────────────────────────────
 
-def ensure_mysql_running():
-    """
-    MySQL 서버가 실행 중인지 확인하고, 꺼져 있으면 자동으로 시작한다.
-    brew services를 통해 제어하며, Mac 환경에서만 동작한다.
-    """
-    print('[MySQL] 서버 상태 확인 중...')
-
-    # 현재 상태를 먼저 출력
-    status_result = subprocess.run(
-        ['brew', 'services', 'list'],
-        capture_output=True,
-        text=True
-    )
-    for line in status_result.stdout.splitlines():
-        if 'mysql' in line:
-            print(f'  현재 상태: {line.strip()}')
-            break
-
-    # 현재 실행 여부 확인
-    result = subprocess.run(
-        ['brew', 'services', 'list'],
-        capture_output=True,
-        text=True
-    )
-
-    if 'mysql' not in result.stdout:
-        print('[MySQL] mysql이 설치되어 있지 않습니다.')
-        print('  아래 명령어로 설치해주세요:')
-        print('  brew install mysql')
-        sys.exit(1)
-
-    # 실행 중인지 확인 (started 상태)
-    mysql_running = any(
-        'mysql' in line and 'started' in line
-        for line in result.stdout.splitlines()
-    )
-
-    if mysql_running:
-        print('[MySQL] 서버가 이미 실행 중입니다.')
-        return
-
-    # 서버 시작
-    print('[MySQL] 서버를 시작합니다...')
-    start_result = subprocess.run(
-        ['brew', 'services', 'start', 'mysql'],
-        capture_output=True,
-        text=True
-    )
-
-    if start_result.returncode != 0:
-        print(f'[MySQL] 시작 실패: {start_result.stderr.strip()}')
-        sys.exit(1)
-
-    # 서버가 완전히 뜰 때까지 최대 10초 대기
-    for i in range(10):
-        time.sleep(1)
-        try:
-            conn = mysql.connector.connect(
-                host='localhost',
-                user='root',
-                password=DB_PASSWORD
-            )
-            conn.close()
-            print('[MySQL] 서버 시작 완료')
-            return
-        except MySQLError:
-            print(f'  대기 중... ({i + 1}초)')
-
-    print('[MySQL] 서버 시작 시간 초과. 직접 확인해주세요.')
-    sys.exit(1)
-
-
-def ensure_database():
-    """
-    데이터베이스가 없으면 자동으로 생성한다.
-    database 없이 root로 접속하여 CREATE DATABASE를 실행한다.
-    """
-    try:
-        conn = mysql.connector.connect(
-            host=DB_HOST,
-            user=DB_USER,
-            password=DB_PASSWORD
-        )
-        cursor = conn.cursor()
-        cursor.execute(
-            f'CREATE DATABASE IF NOT EXISTS {DB_NAME}'
-        )
-        conn.commit()
-        cursor.close()
-        conn.close()
-        print(f'[DB] 데이터베이스 \'{DB_NAME}\' 준비 완료')
-    except MySQLError as e:
-        print(f'[DB] 데이터베이스 생성 실패: {e}')
-        sys.exit(1)
+DB_HOST = 'localhost'
+DB_USER = 'root'
+DB_PASSWORD = ''          # 본인의 MySQL 비밀번호 입력
+DB_NAME = 'mars_mission'
+CSV_FILE = 'mars_weathers_data.csv'
 
 
 # ─────────────────────────────────────────────────────────────────
@@ -127,28 +36,43 @@ def ensure_database():
 class MySQLHelper:
     """MySQL 연결 및 쿼리 실행을 캡슐화하는 헬퍼 클래스."""
 
-    def __init__(self, host, user, password, database):
+    def __init__(self, host, user, password, database=None):
         """
         MySQL 연결을 초기화한다.
+
+        연결 실패 시 서버 시작 안내를 출력하고 사용자 확인 후
+        최대 3회 재시도한다.
 
         Args:
             host (str): MySQL 서버 주소
             user (str): 사용자 이름
             password (str): 비밀번호
-            database (str): 사용할 데이터베이스 이름
+            database (str): 사용할 데이터베이스 이름 (없으면 None)
         """
-        try:
-            self.connection = mysql.connector.connect(
-                host=host,
-                user=user,
-                password=password,
-                database=database
-            )
-            self.cursor = self.connection.cursor()
-            print(f'[DB] {host}/{database} 연결 성공')
-        except MySQLError as e:
-            print(f'[DB 연결 실패] {e}')
-            sys.exit(1)
+        kwargs = dict(host=host, user=user, password=password)
+        if database:
+            kwargs['database'] = database
+
+        max_retries = 3
+        for attempt in range(1, max_retries + 1):
+            try:
+                self.connection = mysql.connector.connect(**kwargs)
+                self.cursor = self.connection.cursor()
+                target = f'{host}/{database}' if database else host
+                print(f'[DB] {target} 연결 성공')
+                return
+            except MySQLError as e:
+                print(f'[DB 연결 실패] {e}')
+                if attempt == max_retries:
+                    print('[DB] 최대 재시도 횟수 초과. 종료합니다.')
+                    sys.exit(1)
+                print()
+                print('  MySQL 서버를 시작한 뒤 Enter를 누르세요.')
+                print('    Mac  : brew services start mysql')
+                print('    Linux: sudo systemctl start mysql')
+                print('    Win  : net start mysql')
+                print(f'  (재시도 {attempt}/{max_retries - 1})')
+                input('  준비되면 Enter: ')
 
     def execute(self, query, params=None):
         """
@@ -210,7 +134,7 @@ class MySQLHelper:
 
 
 # ─────────────────────────────────────────────────────────────────
-# 테이블 생성
+# DB / 테이블 초기화
 # ─────────────────────────────────────────────────────────────────
 
 CREATE_TABLE_SQL = '''
@@ -221,6 +145,17 @@ CREATE TABLE IF NOT EXISTS mars_weather (
     storm      INT
 )
 '''
+
+
+def ensure_database():
+    """데이터베이스가 없으면 자동으로 생성한다."""
+    db = MySQLHelper(DB_HOST, DB_USER, DB_PASSWORD)
+    try:
+        db.execute(f'CREATE DATABASE IF NOT EXISTS {DB_NAME}')
+        db.commit()
+        print(f'[DB] 데이터베이스 \'{DB_NAME}\' 준비 완료')
+    finally:
+        db.close()
 
 
 def create_table(db):
@@ -234,12 +169,16 @@ def create_table(db):
 # CSV 읽기
 # ─────────────────────────────────────────────────────────────────
 
+# CSV 헤더의 storm 컬럼이 'stom'으로 오타 처리되어 있다.
+CSV_STORM_COL = 'stom'
+
+
 def read_csv(file_path):
     """
     CSV 파일을 읽어 (mars_date, temp, storm) 튜플 목록으로 반환한다.
 
-    CSV 컬럼: weather_id, mars_date, temp, stom(storm 오타)
-    weather_id는 AUTO_INCREMENT이므로 읽지 않는다.
+    원본 CSV의 storm 컬럼명이 'stom'으로 오타 처리되어 있어
+    CSV_STORM_COL 상수로 분리하여 명시적으로 처리한다.
 
     Args:
         file_path (str): CSV 파일 경로
@@ -260,7 +199,8 @@ def read_csv(file_path):
                 try:
                     mars_date = row['mars_date']
                     temp = int(float(row['temp']))
-                    storm = int(row['stom'])   # CSV 오타 컬럼명
+                    # CSV 헤더 오타('stom')를 명시적으로 처리
+                    storm = int(row[CSV_STORM_COL])
                     rows.append((mars_date, temp, storm))
                 except (KeyError, ValueError) as e:
                     print(f'[CSV 경고] {i}번째 행 파싱 실패 → 건너뜀: {e}')
@@ -290,17 +230,20 @@ def insert_data(db, rows):
     """
     CSV에서 읽은 데이터를 INSERT 쿼리로 반복 실행하여 저장한다.
 
+    삽입 전 TRUNCATE로 기존 데이터를 초기화하여 중복 적재를 방지한다.
+
     Args:
         db (MySQLHelper): DB 헬퍼 인스턴스
         rows (list[tuple]): (mars_date, temp, storm) 목록
     """
+    db.execute('TRUNCATE TABLE mars_weather')
     db.execute_many(INSERT_SQL, rows)
     db.commit()
     print(f'[DB] {len(rows)}개 행 삽입 완료')
 
 
 # ─────────────────────────────────────────────────────────────────
-# 결과 확인
+# 요약 조회 및 출력
 # ─────────────────────────────────────────────────────────────────
 
 def fetch_summary(db):
@@ -339,9 +282,15 @@ def print_summary(summary):
     print()
     print('=== 화성 날씨 데이터 요약 ===')
     print(f'  총 데이터 수  : {summary["total"]}개')
-    print(f'  기간          : {summary["date_start"]} ~ {summary["date_end"]}')
+    print(
+        f'  기간          : {summary["date_start"]}'
+        f' ~ {summary["date_end"]}'
+    )
     print(f'  평균 기온     : {summary["temp_avg"]:.1f}°C')
-    print(f'  최저 / 최고   : {summary["temp_min"]}°C / {summary["temp_max"]}°C')
+    print(
+        f'  최저 / 최고   : {summary["temp_min"]}°C'
+        f' / {summary["temp_max"]}°C'
+    )
     print(f'  폭풍 위험일   : {summary["storm_count"]}일 (storm >= 70)')
 
 
@@ -364,73 +313,16 @@ def save_summary_png(summary, file_path='mars_weather_summary.png'):
 
 
 # ─────────────────────────────────────────────────────────────────
-# 설정
-# ─────────────────────────────────────────────────────────────────
-
-DB_HOST = 'localhost'
-DB_USER = 'root'
-DB_PASSWORD = ''          # 본인의 MySQL 비밀번호 입력
-DB_NAME = 'mars_mission'
-CSV_FILE = 'mars_weathers_data.csv'
-
-
-# ─────────────────────────────────────────────────────────────────
 # 메인
 # ─────────────────────────────────────────────────────────────────
 
-def stop_mysql():
-    """
-    MySQL 서버를 종료한다.
-    brew services를 통해 제어하며, Mac 환경에서만 동작한다.
-    이미 꺼져 있으면 메시지만 출력하고 넘어간다.
-    """
-    print('[MySQL] 서버 종료 중...')
-
-    result = subprocess.run(
-        ['brew', 'services', 'stop', 'mysql'],
-        capture_output=True,
-        text=True
-    )
-
-    if result.returncode != 0:
-        print(f'[MySQL] 종료 실패: {result.stderr.strip()}')
-        return
-
-    # 완전히 꺼질 때까지 최대 5초 대기
-    for i in range(5):
-        time.sleep(1)
-        check = subprocess.run(
-            ['brew', 'services', 'list'],
-            capture_output=True,
-            text=True
-        )
-        mysql_stopped = any(
-            'mysql' in line and 'started' not in line
-            for line in check.stdout.splitlines()
-        )
-        if mysql_stopped:
-            print('[MySQL] 서버 종료 완료')
-            return
-        print(f'  종료 대기 중... ({i + 1}초)')
-
-    print('[MySQL] 종료를 확인하지 못했습니다. 직접 확인해주세요.')
-
-
 def main():
     """전체 실행 흐름을 관리한다."""
-    # 1. MySQL 서버 자동 시작
-    ensure_mysql_running()
-
-    # 2. 데이터베이스 자동 생성
+    # 1. 데이터베이스 자동 생성
     ensure_database()
 
-    # 3. 테이블 생성 및 데이터 삽입
-    db = MySQLHelper(
-        host=DB_HOST,
-        user=DB_USER,
-        password=DB_PASSWORD,
-        database=DB_NAME
-    )
+    # 2. 테이블 생성 및 데이터 삽입
+    db = MySQLHelper(DB_HOST, DB_USER, DB_PASSWORD, DB_NAME)
     try:
         create_table(db)
         rows = read_csv(CSV_FILE)
@@ -440,13 +332,6 @@ def main():
         save_summary_png(summary)
     finally:
         db.close()
-
-    # 4. MySQL 서버 종료 여부 확인
-    answer = input('\nMySQL 서버를 종료할까요? [Y/n]: ').strip().lower()
-    if answer in ('', 'y'):
-        stop_mysql()
-    else:
-        print('[MySQL] 서버를 계속 실행합니다.')
 
 
 if __name__ == '__main__':
